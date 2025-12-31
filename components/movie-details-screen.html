@@ -1,0 +1,53 @@
+<!-- Movie Details Screen Component -->
+<div id="movie-details-screen" class="screen">
+    <div class="movie-backdrop">
+        <img id="detail-backdrop" src="" alt="Movie Backdrop">
+    </div>
+    <div class="movie-details-content">
+        <div class="movie-details-left">
+            <div class="movie-cover">
+                <img id="detail-poster" src="" alt="Movie Poster">
+            </div>
+        </div>
+        <div class="movie-details-right">
+            <div class="movie-details-badges">
+                <span class="badge badge-imdb">IMDb</span>
+                <span class="badge badge-hd">HD</span>
+            </div>
+            <h1 class="movie-details-title" id="detail-title">Movie Title</h1>
+            <p class="movie-details-tagline" id="detail-tagline">Movie tagline</p>
+            <div class="movie-details-meta">
+                <span id="detail-year">2024</span>
+                <span id="detail-duration">2h 30m</span>
+                <span class="movie-details-rating" id="detail-rating">
+                    <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                    8.5
+                </span>
+            </div>
+            <div class="movie-details-genres" id="detail-genres">
+                <!-- Genres populated by JS -->
+            </div>
+            <p class="movie-details-description" id="detail-description">
+                Movie description goes here.
+            </p>
+            <div class="movie-details-cast">
+                <p class="cast-label">Starring</p>
+                <p class="cast-names" id="detail-cast">Actor 1, Actor 2, Actor 3</p>
+            </div>
+            <div class="movie-details-actions">
+                <button class="btn-play focusable" tabindex="0" onclick="Actions.playMovie()">
+                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    Play Now
+                </button>
+                <button class="btn-secondary focusable" tabindex="0">
+                    <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                    My List
+                </button>
+                <button class="btn-secondary focusable" tabindex="0">
+                    <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    Favorite
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

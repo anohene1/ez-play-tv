@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+    <title>EZ Play TV</title>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/screens.css">
+    <link rel="stylesheet" href="css/movies-player.css">
+</head>
+
+<body>
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="screen active">
+        <div class="setup-container">
+            <div class="setup-logo">
+                <div class="logo">
+                    <img src="images/icon-130x130.png" alt="EZ Play TV" class="logo-img">
+                    <span class="logo-text">EZ Play TV</span>
+                </div>
+            </div>
+            <h1 class="setup-title">Welcome to EZ Play TV</h1>
+            <p class="setup-subtitle">Enter your Stalker Portal details to get started</p>
+            <div class="setup-form">
+                <div class="input-group">
+                    <label>Portal URL</label>
+                    <div class="input-field focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                        </svg>
+                        <input type="text" id="portal-url" placeholder="http://example.com:8080">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>MAC Address</label>
+                    <div class="input-field focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M20 8h-2.81c-.45-.78-1.07-1.45-1.82-1.96L17 4.41 15.59 3l-2.17 2.17C12.96 5.06 12.49 5 12 5c-.49 0-.96.06-1.41.17L8.41 3 7 4.41l1.62 1.63C7.88 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81c1.04 1.79 2.97 3 5.19 3s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 8h-4v-2h4v2zm0-4h-4v-2h4v2z" />
+                        </svg>
+                        <input type="text" id="mac-address" placeholder="00:1A:79:XX:XX:XX">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Account Name (Optional)</label>
+                    <div class="input-field focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                        <input type="text" id="account-name" placeholder="My IPTV">
+                    </div>
+                </div>
+            </div>
+            <button class="setup-btn focusable" tabindex="0" onclick="Actions.saveAccount()">Connect</button>
+        </div>
+    </div>
+
+    <!-- Profile Screen -->
+    <div id="profile-screen" class="screen">
+        <header class="profile-header">
+            <button class="back-btn focusable" tabindex="0" onclick="ScreenManager.show('home')">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                </svg>
+            </button>
+            <h1 class="profile-title">Accounts</h1>
+        </header>
+        <div class="profile-content">
+            <div class="accounts-section">
+                <h2 class="section-title">Your IPTV Providers</h2>
+                <div class="accounts-list" id="accounts-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen">
+        <header class="home-header">
+            <div class="logo">
+                <img src="images/icon-80x80.png" alt="EZ Play TV" class="logo-img">
+                <span class="logo-text">EZ Play TV</span>
+            </div>
+            <div class="header-right">
+                <div class="profile-name" id="home-profile-name"></div>
+                <div class="avatar focusable" tabindex="0" onclick="ScreenManager.show('profile')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="32"
+                        height="32">
+                        <path fill-rule="evenodd"
+                            d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+            </div>
+        </header>
+        <div class="home-content">
+            <div class="category-cards">
+                <div class="category-card focusable" tabindex="0" id="livetv-card" autofocus
+                    onclick="ScreenManager.show('channels')">
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Live TV's</h3>
+                        <p class="card-subtitle" id="home-channels-count">+5000 Channels</p>
+                    </div>
+                </div>
+                <div class="category-card focusable" tabindex="0" onclick="ScreenManager.show('movies')">
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m6.2 5.3 3.1 3.9" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m12.4 3.4 3.1 4" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Movies</h3>
+                        <p class="card-subtitle" id="home-movies-count">+1200 Movies</p>
+                    </div>
+                </div>
+                <div class="category-card focusable" tabindex="0" onclick="ScreenManager.show('series')">
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0 1 18 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 0 1 6 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M19.125 12h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m14.25 0h1.5" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Series</h3>
+                        <p class="card-subtitle" id="home-series-count">+800 Series</p>
+                    </div>
+                </div>
+                <div class="category-card focusable" tabindex="0">
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="m3.75 7.5 16.5-4.125M12 6.75c-2.708 0-5.363.224-7.948.655C2.999 7.58 2.25 8.507 2.25 9.574v9.176A2.25 2.25 0 0 0 4.5 21h15a2.25 2.25 0 0 0 2.25-2.25V9.574c0-1.067-.75-1.994-1.802-2.169A48.329 48.329 0 0 0 12 6.75Zm-1.683 6.443-.005.005-.006-.005.006-.005.005.005Zm-.005 2.127-.005-.006.005-.005.005.005-.005.005Zm-2.116-.006-.005.006-.006-.006.005-.005.006.005Zm-.005-2.116-.006-.005.006-.005.005.005-.005.005ZM9.255 10.5v.008h-.008V10.5h.008Zm3.249 1.88-.007.004-.003-.007.006-.003.004.006Zm-1.38 5.126-.003-.006.006-.004.004.007-.006.003Zm.007-6.501-.003.006-.007-.003.004-.007.006.004Zm1.37 5.129-.007-.004.004-.006.006.003-.004.007Zm.504-1.877h-.008v-.007h.008v.007ZM9.255 18v.008h-.008V18h.008Zm-3.246-1.87-.007.004L6 16.127l.006-.003.004.006Zm1.366-5.119-.004-.006.006-.004.004.007-.006.003ZM7.38 17.5l-.003.006-.007-.003.004-.007.006.004Zm-1.376-5.116L6 12.38l.003-.007.007.004-.004.007Zm-.5 1.873h-.008v-.007h.008v.007ZM17.25 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Zm0 4.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                            </svg>
+                        </div>
+                        <h3 class="card-title">Radios</h3>
+                        <p class="card-subtitle">+500 Stations</p>
+                    </div>
+                </div>
+            </div>
+            <div class="home-right">
+                <div class="clock-widget">
+                    <div class="clock-time" id="clock-time">12:51</div>
+                    <div class="clock-date" id="clock-date">Wednesday, Jan 2</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Channels Screen -->
+    <div id="channels-screen" class="screen">
+        <aside class="channels-sidebar">
+            <div class="sidebar-header">
+                <button class="back-btn focusable" tabindex="0" onclick="ScreenManager.show('home')">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                    </svg>
+                </button>
+                <h2 class="sidebar-title">Live TV's</h2>
+            </div>
+            <div class="country-list" id="country-list"></div>
+        </aside>
+        <main class="channels-main">
+            <div class="channels-content">
+                <header class="channels-header">
+                    <div class="search-bar focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                        </svg>
+                        <input type="text" placeholder="Search channels..." id="channels-search">
+                    </div>
+                    <div class="header-info">
+                        <span class="time-display" id="channels-time">12:51</span>
+                    </div>
+                </header>
+                <div class="channels-grid" id="channels-grid"></div>
+            </div>
+            <div class="mini-player focusable" onclick="ScreenManager.show('player')" tabindex="0">
+                <div class="mini-player-video">
+                    <img id="mini-player-poster" src="" style="display: none;" alt="Now Playing">
+                    <div class="play-icon" id="mini-player-play-icon" style="display: none;">
+                        <svg viewBox="0 0 24 24" width="80" height="80">
+                            <circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.6)" />
+                            <path d="M9.5 7.5v9l7-4.5z" fill="white" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="mini-player-content">
+                    <p class="mini-player-label"></p>
+                    <h3 class="mini-player-title"></h3>
+                    <p class="mini-player-description"></p>
+                    <div class="mini-player-progress" style="display: none;">
+                        <span class="progress-time">00:00:00</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Movies Screen -->
+    <div id="movies-screen" class="screen">
+        <aside class="movies-sidebar">
+            <div class="sidebar-header">
+                <button class="back-btn focusable" tabindex="0" onclick="ScreenManager.show('home')">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                    </svg>
+                </button>
+                <h2 class="sidebar-title">Movies</h2>
+            </div>
+            <div class="genre-list" id="genre-list"></div>
+        </aside>
+        <main class="movies-main">
+            <header class="movies-header">
+                <div class="search-bar focusable" tabindex="0">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                    <input type="text" placeholder="Search movies..." id="movies-search">
+                </div>
+                <div class="header-info">
+                    <span class="time-display" id="movies-time">12:51</span>
+                    <div class="avatar focusable" tabindex="0" onclick="ScreenManager.show('profile')"><svg
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
+                                clip-rule="evenodd" />
+                        </svg></div>
+                </div>
+            </header>
+            <div class="movies-grid" id="movies-grid"></div>
+        </main>
+    </div>
+
+    <!-- Series Screen -->
+    <div id="series-screen" class="screen">
+        <aside class="series-sidebar">
+            <div class="sidebar-header">
+                <button class="back-btn focusable" tabindex="0" onclick="ScreenManager.show('home')">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                    </svg>
+                </button>
+                <h2 class="sidebar-title">Series</h2>
+            </div>
+            <div class="series-genre-list" id="series-genre-list"></div>
+        </aside>
+        <main class="series-main">
+            <header class="series-header">
+                <div class="search-bar focusable" tabindex="0">
+                    <svg viewBox="0 0 24 24">
+                        <path
+                            d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+                    </svg>
+                    <input type="text" placeholder="Search series..." id="series-search">
+                </div>
+                <div class="header-info">
+                    <span class="time-display" id="series-time">12:51</span>
+                    <div class="avatar focusable" tabindex="0" onclick="ScreenManager.show('profile')"><svg
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
+                                clip-rule="evenodd" />
+                        </svg></div>
+                </div>
+            </header>
+            <div class="series-grid" id="series-grid"></div>
+        </main>
+    </div>
+
+    <!-- Series Details Screen -->
+    <div id="series-details-screen" class="screen">
+        <div class="movie-backdrop">
+            <img id="series-detail-backdrop" src="" alt="Series Backdrop">
+        </div>
+        <div class="movie-details-content">
+            <div class="movie-details-left">
+                <div class="movie-cover">
+                    <img id="series-detail-poster" src="" alt="Series Poster">
+                </div>
+            </div>
+            <div class="movie-details-right">
+                <div class="movie-details-badges">
+                    <span class="badge badge-imdb">IMDb</span>
+                    <span class="badge badge-hd">HD</span>
+                </div>
+                <h1 class="movie-details-title" id="series-detail-title">Series Title</h1>
+                <p class="movie-details-tagline" id="series-detail-tagline">Series tagline</p>
+                <div class="movie-details-meta">
+                    <span id="series-detail-year">2024</span>
+                    <span id="series-detail-seasons">1 Season</span>
+                    <span class="movie-details-rating" id="series-detail-rating">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                        8.5
+                    </span>
+                </div>
+                <div class="movie-details-genres" id="series-detail-genres"></div>
+                <p class="movie-details-description" id="series-detail-description">Series description goes here.</p>
+                <div class="movie-details-cast">
+                    <p class="cast-label">Starring</p>
+                    <p class="cast-names" id="series-detail-cast">Actor 1, Actor 2, Actor 3</p>
+                </div>
+                <div class="movie-details-actions">
+                    <button class="btn-play focusable" tabindex="0" onclick="Actions.playSeries()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Play Series
+                    </button>
+                    <button class="btn-secondary focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </svg>
+                        My List
+                    </button>
+                    <button class="btn-secondary focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                        Favorite
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Movie Details Screen -->
+    <div id="movie-details-screen" class="screen">
+        <div class="movie-backdrop">
+            <img id="detail-backdrop" src="" alt="Movie Backdrop">
+        </div>
+        <div class="movie-details-content">
+            <div class="movie-details-left">
+                <div class="movie-cover">
+                    <img id="detail-poster" src="" alt="Movie Poster">
+                </div>
+            </div>
+            <div class="movie-details-right">
+                <div class="movie-details-badges">
+                    <span class="badge badge-imdb">IMDb</span>
+                    <span class="badge badge-hd">HD</span>
+                </div>
+                <h1 class="movie-details-title" id="detail-title">Movie Title</h1>
+                <p class="movie-details-tagline" id="detail-tagline">Movie tagline</p>
+                <div class="movie-details-meta">
+                    <span id="detail-year">2024</span>
+                    <span id="detail-duration">2h 30m</span>
+                    <span class="movie-details-rating" id="detail-rating">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                        </svg>
+                        8.5
+                    </span>
+                </div>
+                <div class="movie-details-genres" id="detail-genres"></div>
+                <p class="movie-details-description" id="detail-description">Movie description goes here.</p>
+                <div class="movie-details-cast">
+                    <p class="cast-label">Starring</p>
+                    <p class="cast-names" id="detail-cast">Actor 1, Actor 2, Actor 3</p>
+                </div>
+                <div class="movie-details-actions">
+                    <button class="btn-play focusable" tabindex="0" onclick="Actions.playMovie()">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        Play Now
+                    </button>
+                    <button class="btn-secondary focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </svg>
+                        My List
+                    </button>
+                    <button class="btn-secondary focusable" tabindex="0">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg>
+                        Favorite
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Screen -->
+    <div id="player-screen" class="screen">
+        <div class="player-video">
+            <video id="video-player" autoplay playsinline></video>
+        </div>
+        <div class="player-overlay">
+            <div class="player-header">
+                <div class="player-weather">
+                </div>
+                <div class="player-datetime">
+                    <div class="player-day" id="player-day">Wednesday</div>
+                    <div class="player-date-time" id="player-datetime">01/02/2024 12:51:27</div>
+                </div>
+            </div>
+            <div class="player-content">
+                <div class="channel-display">
+                    <div class="channel-logo-large">
+                        <span style="font-size:16px;font-weight:700;color:#333">NAT GEO WILD</span>
+                    </div>
+                    <div class="channel-details">
+                        <div class="channel-number">001</div>
+                        <div class="channel-name-large">Animals and Nature</div>
+                        <div class="channel-tech" style="display:none"></div>
+                        <div class="stream-stats" style="display:none"></div>
+                    </div>
+                </div>
+                <div class="epg-panel">
+
+                    <div class="epg-items"></div>
+                    <div class="epg-progress" style="display:none">
+                        <div class="progress-fill" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HLS.js and mpegts.js for video playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js"></script>
+
+    <!-- JavaScript Modules -->
+    <script src="js/data.js"></script>
+    <script src="js/accounts.js"></script>
+    <script src="js/stalker-api.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/content-manager.js"></script>
+    <script src="js/screens.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/actions.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

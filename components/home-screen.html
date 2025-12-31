@@ -1,0 +1,75 @@
+<!-- Home Screen Component -->
+<div id="home-screen" class="screen">
+    <header class="home-header">
+        <div class="logo">
+            <span class="logo-icon">MI</span>
+            <span class="logo-text">IPTV</span>
+        </div>
+        <div class="header-right">
+            <div class="profile-name" id="home-profile-name"></div>
+            <button class="icon-btn focusable" tabindex="0">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                </svg>
+            </button>
+            <div class="avatar focusable" tabindex="0" onclick="ScreenManager.show('profile')">👤</div>
+        </div>
+    </header>
+    <div class="home-content">
+        <div class="category-cards">
+            <div class="category-card focusable" tabindex="0" onclick="ScreenManager.show('channels')">
+
+                <div class="card-content">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.11-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Live TV's</h3>
+                    <p class="card-subtitle">+5000 Channels</p>
+                </div>
+            </div>
+            <div class="category-card focusable" tabindex="0" onclick="ScreenManager.show('movies')">
+
+                <div class="card-content">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Movies</h3>
+                    <p class="card-subtitle">+1200 Series</p>
+                </div>
+            </div>
+            <div class="category-card focusable" tabindex="0">
+
+                <div class="card-content">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path
+                                d="M3.24 6.15C2.51 6.43 2 7.17 2 8v12c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2H8.3l8.26-3.34L15.88 1 3.24 6.15zM7 20c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm13-8h-2v-2h-2v2H4V8h16v4z" />
+                        </svg>
+                    </div>
+                    <h3 class="card-title">Radios</h3>
+                    <p class="card-subtitle">+500 Stations</p>
+                </div>
+            </div>
+        </div>
+        <div class="home-right">
+            <div class="weather-widget">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+                </svg>
+                <span class="weather-temp">24°</span>
+            </div>
+            <div class="clock-widget">
+                <div class="clock-time" id="clock-time">12:51</div>
+                <div class="clock-date" id="clock-date">Wednesday, Jan 2</div>
+            </div>
+        </div>
+    </div>
+</div>

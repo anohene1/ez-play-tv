@@ -1,0 +1,18 @@
+{
+    "id": "com.ezplaytv.app",
+    "version": "1.0.0",
+    "vendor": "EZ Play TV",
+    "type": "web",
+    "main": "index.html",
+    "title": "EZ Play TV",
+    "icon": "images/icon-80x80.png",
+    "largeIcon": "images/icon-130x130.png",
+    "bgColor": "#6366f1",
+    "resolution": "1920x1080",
+    "disableBackHistoryAPI": true,
+    "handlesRelaunch": false,
+    "requiredPermissions": [
+        "time.query",
+        "activity.operation"
+    ]
+}
