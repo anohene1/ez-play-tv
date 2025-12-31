@@ -518,3 +518,85 @@ body {
     height: 22px;
     fill: currentColor;
 }
+
+.btn-secondary.active {
+    border-color: #f59e0b;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.btn-secondary.active svg {
+    fill: #f59e0b;
+}
+
+/* General Toast Notification */
+.toast-notification {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast-notification.show {
+    opacity: 1;
+}
+
+/* Channel Favorite Star */
+.favorite-star {
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.favorite-star svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Remote Control Legend */
+.remote-legend {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 24px;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 50px;
+    z-index: 100;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.legend-key {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: block;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.legend-key.yellow {
+    background-color: #f59e0b;
+}
+
+.legend-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+}

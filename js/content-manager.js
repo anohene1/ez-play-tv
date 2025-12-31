@@ -63,8 +63,9 @@ const ContentManager = {
         try {
             const genres = await StalkerAPI.getGenres();
 
-            // Add "All" category at the beginning
+            // Add "Favorites" and "All" categories
             this.cache.genres = [
+                { id: 'favorites', title: 'Favorites', number: '-1' },
                 { id: '*', title: 'All Channels', number: '0' },
                 ...genres,
             ];
@@ -86,6 +87,21 @@ const ContentManager = {
 
         if (!forceRefresh && this.cache.channels[cacheKey]) {
             return this.cache.channels[cacheKey];
+        }
+
+        // Handle Favorites
+        if (genre === 'favorites') {
+            const favorites = FavoritesManager.getChannels();
+            const start = (page - 1) * 20; // Simulated pagination
+            const end = start + 20;
+            const pageItems = favorites.slice(start, end);
+
+            return {
+                channels: pageItems,
+                total: favorites.length,
+                pages: Math.ceil(favorites.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         if (this.loading.channels) return null;
@@ -170,6 +186,7 @@ const ContentManager = {
             const categories = await StalkerAPI.getVodCategories();
 
             this.cache.vodCategories = [
+                { id: 'favorites', title: 'Favorites' },
                 { id: '*', title: 'All Movies' },
                 ...categories,
             ];
@@ -191,6 +208,24 @@ const ContentManager = {
 
         if (!forceRefresh && this.cache.vodItems[cacheKey]) {
             return this.cache.vodItems[cacheKey];
+        }
+
+        // Handle Favorites
+        if (category === 'favorites') {
+            const favorites = FavoritesManager.getMovies();
+            // Filter by search if needed
+            const items = search ? favorites.filter(m => m.name.toLowerCase().includes(search.toLowerCase())) : favorites;
+
+            const start = (page - 1) * 20;
+            const end = start + 20;
+            const pageItems = items.slice(start, end);
+
+            return {
+                items: pageItems,
+                total: items.length,
+                pages: Math.ceil(items.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         try {
@@ -248,6 +283,7 @@ const ContentManager = {
             const categories = await StalkerAPI.getSeriesCategories();
 
             this.cache.seriesCategories = [
+                { id: 'favorites', title: 'Favorites' },
                 { id: '*', title: 'All Series' },
                 ...categories,
             ];
@@ -267,6 +303,24 @@ const ContentManager = {
 
         if (this.cache.series[cacheKey]) {
             return this.cache.series[cacheKey];
+        }
+
+        // Handle Favorites
+        if (category === 'favorites') {
+            const favorites = FavoritesManager.getSeries();
+            // Filter by search if needed
+            const items = search ? favorites.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : favorites;
+
+            const start = (page - 1) * 20;
+            const end = start + 20;
+            const pageItems = items.slice(start, end);
+
+            return {
+                items: pageItems,
+                total: items.length,
+                pages: Math.ceil(items.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         try {
@@ -301,13 +355,84 @@ const ContentManager = {
     /**
      * Get stream URL for Series
      */
-    async getSeriesStream(series) {
+    async getSeriesStream(episode) {
         try {
-            const streamUrl = await StalkerAPI.createSeriesLink(series.cmd || series.id);
+            if (!episode.cmd) {
+                throw new Error('Episode missing cmd parameter');
+            }
+            const streamUrl = await StalkerAPI.createSeriesLink(episode.cmd, episode.id);
             return streamUrl;
         } catch (error) {
             console.error('Failed to get Series stream URL:', error);
             return null;
+        }
+    },
+
+    /**
+     * Get episodes for a series
+     */
+    async getSeriesEpisodes(series) {
+        try {
+            const seasonsResult = await StalkerAPI.getSeriesEpisodes(series.id);
+            const seasons = seasonsResult.items;
+
+            if (!seasons || seasons.length === 0) {
+                return [];
+            }
+
+            console.log('Processing seasons:', seasons);
+
+            // Create episode objects from the series array in each season
+            const allEpisodes = [];
+
+            seasons.forEach(season => {
+                // Extract season number from the name
+                const seasonMatch = season.name.match(/Season (\d+)/i);
+                const seasonNum = seasonMatch ? parseInt(seasonMatch[1]) : 1;
+
+                // Decode the cmd to get series_id
+                let seriesId = series.id;
+                try {
+                    const decodedCmd = JSON.parse(atob(season.cmd));
+                    if (decodedCmd.series_id) {
+                        seriesId = decodedCmd.series_id;
+                    }
+                } catch (e) {
+                    console.warn('Could not decode season cmd:', e);
+                }
+
+                // The 'series' array contains episode numbers
+                if (season.series && Array.isArray(season.series)) {
+                    season.series.forEach(episodeNum => {
+                        // Create a cmd for this specific episode
+                        // Format: {"series_id":..., "season_num":..., "episode_num":..., "type":"series"}
+                        const episodeCmd = btoa(JSON.stringify({
+                            series_id: seriesId,
+                            season_num: seasonNum,
+                            episode_num: episodeNum,
+                            type: 'series'
+                        }));
+
+                        allEpisodes.push({
+                            id: `${seriesId}:${seasonNum}:${episodeNum}`,
+                            name: `Episode ${episodeNum}`,
+                            episode: episodeNum,
+                            season: seasonNum,
+                            seriesId: seriesId,
+                            cmd: episodeCmd,
+                            duration: season.time && season.time !== 'N/a' ? season.time : '',
+                            description: season.description || '',
+                            screenshot_uri: season.screenshot_uri || ''
+                        });
+                    });
+                }
+            });
+
+            console.log('Generated episodes:', allEpisodes.length);
+            return allEpisodes;
+        } catch (error) {
+            console.error('Failed to get series episodes:', error);
+            return [];
         }
     },
 

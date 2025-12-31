@@ -411,6 +411,53 @@
     min-width: 300px;
 }
 
+/* ==================== SERIES SCREEN ==================== */
+#series-screen {
+    display: flex;
+    background: var(--bg-primary);
+}
+
+.series-sidebar {
+    width: 380px;
+    background: var(--bg-secondary);
+    padding: 32px 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.series-genre-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 8px 20px;
+}
+
+.series-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.series-header {
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.series-grid {
+    flex: 1;
+    padding: 8px 48px 32px 48px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 24px;
+    overflow-y: auto;
+}
+
 /* ==================== CHANNELS SCREEN ==================== */
 #channels-screen {
     display: flex;
@@ -752,4 +799,389 @@
 .progress-time {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==================== FAVORITES SCREEN ==================== */
+#favorites-screen {
+    background: linear-gradient(135deg, #1a1d2e 0%, #2d1f3d 50%, #1a1d2e 100%);
+    display: flex;
+}
+
+.favorites-sidebar {
+    width: 380px;
+    background: var(--bg-secondary);
+    padding: 32px 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: visible;
+}
+
+.favorites-tabs {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 8px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+}
+
+.tab-btn:hover,
+.tab-btn:focus {
+    background: var(--bg-card);
+    color: white;
+}
+
+.tab-btn.active {
+    background: var(--bg-card);
+    color: white;
+    border-left: 4px solid var(--accent-primary);
+}
+
+.favorites-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.favorites-header {
+    padding: 32px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.favorites-grid {
+    flex: 1;
+    padding: 8px 48px 16px 48px;
+    display: flex;
+    flex-direction: column;
+    /* For list view if needed, but grid is better */
+    gap: 12px;
+    overflow-y: auto;
+}
+
+/* Reuse existing grid styles but ensure they apply */
+.favorites-grid .channel-card {
+    /* Inherit existing styles */
+}
+
+.favorites-grid .movie-card {
+    width: 200px;
+    /* Fixed width */
+    height: 340px;
+    /* Fixed height to prevent spanning */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    /* Ensure absolute children are contained */
+    background: var(--bg-card);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    transition: var(--transition-fast);
+    border: 2px solid transparent;
+}
+
+.favorites-grid .movie-card:hover,
+.favorites-grid .movie-card:focus {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-primary);
+    z-index: 10;
+}
+
+.favorites-grid .movie-poster {
+    height: 240px;
+    /* Adjusted height */
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.favorites-grid .movie-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.favorites-grid .movie-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.favorites-grid .movie-card:hover .movie-overlay,
+.favorites-grid .movie-card:focus .movie-overlay {
+    opacity: 1;
+}
+
+.favorites-grid .play-btn {
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.favorites-grid .play-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+.favorites-grid .series-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--accent-primary);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.favorites-grid .movie-info {
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.favorites-grid .movie-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.favorites-grid .movie-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.favorites-grid .movie-rating {
+    display: flex;
+    /* Ensure it doesn't float weirdly */
+    align-items: center;
+    color: #f5c518;
+}
+
+/* ==================== SERIES DETAILS SCREEN ==================== */
+#series-details-screen {
+    background: #000;
+}
+
+#series-details-screen .movie-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center top;
+    opacity: 0.6;
+    z-index: 0;
+}
+
+.series-layout {
+    display: flex;
+    height: 100%;
+    margin-top: 60px;
+    /* Offset for header */
+    padding-bottom: 40px;
+    gap: 40px;
+    position: relative;
+    z-index: 2;
+}
+
+.series-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    /* Align bottom like movie details */
+    padding-bottom: 40px;
+    max-width: 45%;
+    padding-left: 64px;
+}
+
+.episodes-container {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    margin-right: 64px;
+    margin-bottom: 30px;
+    max-height: calc(100vh - 150px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.episodes-section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 24px 0 16px 0;
+    color: var(--text-primary);
+}
+
+.episodes-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 10px;
+    max-height: 400px;
+}
+
+.episode-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    border: 2px solid transparent;
+}
+
+.episode-item:hover,
+.episode-item:focus {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-primary);
+    transform: translateX(5px);
+}
+
+.episode-number {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    min-width: 30px;
+}
+
+.episode-info {
+    flex: 1;
+}
+
+.episode-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.episode-duration {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.episode-play-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.episode-item:hover .episode-play-icon,
+.episode-item:focus .episode-play-icon {
+    opacity: 1;
+}
+
+.episode-play-icon svg {
+    width: 16px;
+    height: 16px;
+    fill: white;
+}
+
+/* Ensure series grid items have fixed size like favorites */
+.series-grid .movie-card {
+    width: 200px;
+    height: 340px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--bg-card);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+    transition: var(--transition-fast);
+    border: 2px solid transparent;
+}
+
+.series-grid .movie-card:hover,
+.series-grid .movie-card:focus {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-primary);
+    z-index: 10;
+}
+
+.series-grid .movie-poster {
+    height: 240px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.series-grid .movie-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }

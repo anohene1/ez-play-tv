@@ -362,14 +362,114 @@ var StalkerAPI = {
     },
 
     /**
-     * Get episodes for a series
-     * Note: Implementation varies by portal version. 
-     * Often Series are navigated via categories/seasons in the list itself, 
-     * or via create_link returning a playlist.
-     * We'll try to fetch ordered list with season_id if applicable or just create_link.
+     * Create series stream link for a specific episode
+     * Series uses type=vod with the cmd containing series info
      */
-    createSeriesLink: function (seriesId) {
-        return this.createLink('play', seriesId);
+    createSeriesLink: function (cmd, episodeId) {
+        console.log('Creating series link with cmd:', cmd);
+
+        // Decode to verify format
+        var episodeInfo;
+        try {
+            episodeInfo = JSON.parse(atob(cmd));
+            console.log('Episode info:', episodeInfo);
+        } catch (e) {
+            console.error('Failed to decode episode cmd:', e);
+            throw new Error('Invalid episode cmd format');
+        }
+
+        // Build params for create_link
+        // For series, use type=vod with the cmd and series=1 flag
+        var params = {
+            type: 'vod',
+            cmd: cmd,
+            series: 1,
+            force_ch_link_check: 0
+        };
+
+        console.log('Series create_link params:', params);
+
+        return this.request('create_link', params)
+            .then(function (result) {
+                console.log('Series create_link result:', result);
+
+                if (result.js && result.js.cmd) {
+                    var streamUrl = result.js.cmd;
+
+                    // Clean up the URL
+                    if (streamUrl.indexOf('ffmpeg ') === 0) {
+                        streamUrl = streamUrl.replace(/^ffmpeg\s+/, '');
+                    }
+                    if (streamUrl.indexOf('ffrt ') === 0) {
+                        streamUrl = streamUrl.replace(/^ffrt\s+/, '');
+                    }
+
+                    var urlMatch = streamUrl.match(/"([^"]+)"|'([^']+)'|(\S+)/);
+                    if (urlMatch) {
+                        streamUrl = urlMatch[1] || urlMatch[2] || urlMatch[3];
+                    }
+
+                    return streamUrl;
+                }
+
+                throw new Error('Failed to create series link - no cmd in response');
+            });
+    },
+
+    /**
+     * Get seasons for a series
+     * Uses get_ordered_list with series ID to fetch all seasons
+     */
+    getSeriesEpisodes: function (seriesId) {
+        return this.request('get_ordered_list', {
+            movie_id: seriesId,
+            season_id: 0,
+            episode_id: 0,
+            action: 'get_ordered_list',
+            type: 'series',
+            p: 1,
+            sortby: 'added'
+        })
+            .then(function (result) {
+                console.log('Series seasons API response:', result);
+                return {
+                    items: (result.js && result.js.data) || [],
+                    total: parseInt((result.js && result.js.total_items) || 0)
+                };
+            });
+    },
+
+    /**
+     * Get episodes for a specific season
+     */
+    getSeasonEpisodes: function (seasonCmd) {
+        // Decode the season cmd to get series_id and season_num
+        var seasonInfo;
+        try {
+            seasonInfo = JSON.parse(atob(seasonCmd));
+        } catch (e) {
+            console.error('Failed to decode season cmd:', e);
+            return Promise.resolve({ items: [], total: 0 });
+        }
+
+        console.log('Fetching episodes for season:', seasonInfo);
+
+        return this.request('get_ordered_list', {
+            movie_id: seasonInfo.series_id,
+            season_id: seasonInfo.season_num,
+            episode_id: 0,
+            action: 'get_ordered_list',
+            type: 'series',
+            p: 1,
+            sortby: 'added'
+        })
+            .then(function (result) {
+                console.log('Season episodes API response:', result);
+                return {
+                    items: (result.js && result.js.data) || [],
+                    total: parseInt((result.js && result.js.total_items) || 0)
+                };
+            });
     },
 
     /**

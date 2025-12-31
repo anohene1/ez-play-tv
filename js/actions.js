@@ -353,6 +353,8 @@ const Actions = {
             };
 
             Player.currentVod = movie;
+            Player.currentChannel = null; // Clear channel context
+            UI.updatePlayerUIForVod(movie);
             await Player.play(streamUrl);
 
         } catch (error) {
@@ -477,6 +479,8 @@ const Actions = {
             };
 
             Player.currentVod = series; // Treat series as VOD for player control context
+            Player.currentChannel = null; // Clear channel context
+            UI.updatePlayerUIForVod(series);
             await Player.play(streamUrl);
 
         } catch (error) {
@@ -573,6 +577,211 @@ const Actions = {
         var prevIndex = currentIndex <= 0 ? UI.channels.length - 1 : currentIndex - 1;
         await this.playChannel(prevIndex);
     },
+
+    /**
+     * Toggle movie favorite
+     */
+    toggleMovieFavorite() {
+        const movie = UI.currentMovie;
+        if (!movie) return;
+
+        const isFav = FavoritesManager.toggle('movies', movie);
+        UI.updateMovieFavoriteButton(isFav);
+
+        const msg = isFav ? 'Added to favorites' : 'Removed from favorites';
+        UI.showToast(msg);
+    },
+
+    /**
+     * Toggle series favorite
+     */
+    toggleSeriesFavorite() {
+        const series = UI.currentSeries;
+        if (!series) return;
+
+        const isFav = FavoritesManager.toggle('series', series);
+        UI.updateSeriesFavoriteButton(isFav);
+
+        const msg = isFav ? 'Added to favorites' : 'Removed from favorites';
+        UI.showToast(msg);
+    },
+
+    /**
+     * Toggle channel favorite
+     */
+    /**
+     * Toggle channel favorite (from Grid)
+     */
+    toggleChannelFavoriteById(channelId) {
+        if (!UI.channels) return;
+
+        // Ensure type safety (IDs might be string or number)
+        const channel = UI.channels.find(ch => String(ch.id) === String(channelId));
+
+        if (!channel) {
+            console.log('Channel object not found for ID:', channelId);
+            return;
+        }
+
+        const isFav = FavoritesManager.toggle('channels', channel);
+        UI.renderChannels(); // Re-render to show star
+
+        const msg = isFav ? `${channel.name} added to favorites` : `${channel.name} removed from favorites`;
+        UI.showToast(msg);
+    },
+
+    /**
+     * Toggle current channel favorite (Player Screen)
+     */
+    toggleCurrentChannelFavorite() {
+        const channel = Player.currentChannel;
+        if (!channel) return;
+
+        const isFav = FavoritesManager.toggle('channels', channel);
+
+        // Update Player UI
+        UI.updatePlayerChannelFavoriteStatus(isFav);
+
+        // Also update grid if it exists in background
+        UI.renderChannels();
+
+        const msg = isFav ? 'Channel added to favorites' : 'Channel removed from favorites';
+        UI.showToast(msg);
+    },
+
+    /**
+     * Play channel from favorites
+     */
+    async playFavoriteChannel(channelId) {
+        const channels = FavoritesManager.getChannels();
+        const channel = channels.find(ch => ch.id === channelId);
+        if (channel) {
+            // We need to set UI.channels temporarily or handle playback directly
+            // For simplicity, let's create a temporary context or just play it
+            // Ideally, we should unify player logic.
+            // Using Player.play directly:
+            await Player.play(channel);
+        }
+    },
+
+    /**
+     * Open favorite movie details
+     */
+    openFavoriteMovie(movieId) {
+        const movies = FavoritesManager.getMovies();
+        const movie = movies.find(m => m.id === movieId);
+        if (movie) {
+            UI.currentMovie = movie;
+            ScreenManager.show('movie-details');
+        }
+    },
+
+    /**
+     * Open favorite series details
+     */
+    openFavoriteSeries(seriesId) {
+        const seriesList = FavoritesManager.getSeries();
+        const series = seriesList.find(s => s.id === seriesId);
+        if (series) {
+            UI.currentSeries = series;
+            ScreenManager.show('series-details');
+        }
+    },
+
+    /**
+     * Toggle series favorite status from details screen
+     */
+    toggleSeriesFavorite(series) {
+        if (!series) return;
+
+        const isFav = FavoritesManager.toggle('series', series);
+        UI.updateSeriesFavoriteButton(series);
+
+        // Also update grid if needed
+        if (typeof UI.renderFavoritesScreen === 'function' && document.getElementById('favorites-screen').classList.contains('active')) {
+            UI.renderFavoritesScreen('series');
+        }
+
+        const msg = isFav ? 'Series added to favorites' : 'Series removed from favorites';
+        UI.showToast(msg);
+    },
+
+    /**
+     * Play specific episode from series
+     */
+    async playSeriesEpisode(seriesId, episodeId) {
+        // Find series and episode
+        let series = UI.currentSeries;
+        if (!series || series.id !== seriesId) {
+            const seriesList = FavoritesManager.getSeries(); // Fallback check favorites
+            series = seriesList.find(s => s.id === seriesId);
+        }
+
+        if (!series) {
+            console.error('Series not found:', seriesId);
+            return;
+        }
+
+        let episode = null;
+        if (series.episodes) {
+            episode = series.episodes.find(e => e.id === episodeId);
+        }
+
+        if (!episode) {
+            console.error('Episode not found:', episodeId);
+            UI.showError('Episode not found');
+            return;
+        }
+
+        if (!episode.cmd) {
+            console.error('Episode has no cmd:', episode);
+            UI.showError('Cannot play episode: missing stream info');
+            return;
+        }
+
+        // Restore video element to player screen if it was in mini player
+        const videoEl = document.getElementById('video-player');
+        const playerContainer = document.querySelector('.player-video');
+        if (videoEl && playerContainer && videoEl.parentElement !== playerContainer) {
+            videoEl.style.objectFit = 'contain';
+            playerContainer.appendChild(videoEl);
+        }
+
+        UI.showLoading(true, 'Getting stream...');
+
+        try {
+            console.log('Playing episode:', episode);
+            const streamUrl = await ContentManager.getSeriesStream(episode);
+
+            if (!streamUrl) {
+                throw new Error('Failed to get stream URL');
+            }
+
+            console.log('Episode Stream URL:', streamUrl);
+
+            ScreenManager.show('player');
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            if (!Player.videoElement) {
+                Player.init('video-player');
+            }
+
+            Player.onPlaying = () => UI.showLoading(false);
+            Player.onBuffering = (isBuffering) => {
+                UI.showLoading(isBuffering, 'Buffering...');
+            };
+
+            Player.currentVod = episode;
+            Player.currentChannel = null;
+            UI.updatePlayerUIForVod(episode);
+            await Player.play(streamUrl);
+
+        } catch (error) {
+            UI.showLoading(false);
+            console.error('Play episode error:', error);
+            UI.showError('Failed to play episode: ' + error.message);
+        }
+    }
 };
 
 window.Actions = Actions;

@@ -4,6 +4,7 @@
 
 const ScreenManager = {
     currentScreen: null,
+    previousScreen: null,
 
     /**
      * Show a screen by ID
@@ -11,6 +12,11 @@ const ScreenManager = {
     show(id) {
         // Hide all screens
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+
+        // Track previous screen
+        if (this.currentScreen) {
+            this.previousScreen = this.currentScreen;
+        }
 
         // Show target screen
         const screen = document.getElementById(id + '-screen');
@@ -66,6 +72,10 @@ const ScreenManager = {
                     UI.loadSeriesContent();
                 }
                 break;
+            case 'favorites':
+                // Default to channels view when opening
+                UI.renderFavoritesScreen('channels');
+                break;
             case 'player':
                 // Ensure video element is available
                 break;
@@ -85,27 +95,10 @@ const ScreenManager = {
             case 'channels':
                 // Try to focus the currently playing channel if available
                 if (Player.currentChannel) {
-                    // Find channel card with this ID (simplified check by class/attribute if we had one, but we likely rely on order)
-                    // Since we don't have easy ID lookup in DOM, we might cycle or just trust the index if we track it.
-                    // IMPORTANT: We need a way to find the channel card. 
-                    // Let's defer to UI helper or specific selector if we marked it.
-                    // The UI.renderChannels adds 'selected' class to the current one?
-                    // Let's assume we can find a selected card.
-
-                    // Actually, Actions.playChannel sets UI.channels[index].
-                    // Let's try to find a channel card that matches.
-                    // If we are coming back, the grid is likely re-rendered or static.
-
-                    // Best bet: Check for a 'selected' channel card or similar
                     const selected = document.querySelector('.channel-card.selected');
                     if (selected) {
                         firstEl = selected;
                     } else {
-                        // Fallback: If we have Player.currentChannel, maybe we can find it by some attribute?
-                        // For now, let's stick to the default list or try to keep previous focus if we could value it.
-                        // But standard behavior requested is to stay on "selected channel".
-
-                        // Let's update Navigation/UI to mark the playing channel as selected in the grid
                         firstEl = document.querySelector('#channels-screen .country-item.focusable');
                     }
                 } else {
@@ -117,6 +110,9 @@ const ScreenManager = {
                 break;
             case 'series':
                 firstEl = document.querySelector('#series-screen .genre-item.focusable');
+                break;
+            case 'favorites':
+                firstEl = document.querySelector('#favorites-screen .tab-btn.active') || document.querySelector('#favorites-screen .tab-btn');
                 break;
             case 'movie-details':
                 firstEl = document.querySelector('#movie-details-screen .btn-play');

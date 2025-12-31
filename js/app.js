@@ -9,15 +9,15 @@ const App = {
      */
     init() {
         console.log('EZ Play TV - Initializing...');
-        
+
         // Initialize modules
         AccountManager.init();
         Navigation.init();
         UI.init();
-        
+
         // Check which screen to show
         ScreenManager.checkInitialScreen();
-        
+
         console.log('EZ Play TV - Ready');
     }
 };
@@ -33,7 +33,7 @@ if (typeof webOS !== 'undefined') {
     document.addEventListener('webOSRelaunch', (event) => {
         console.log('webOS relaunch event:', event);
     });
-    
+
     // Handle visibility changes
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {

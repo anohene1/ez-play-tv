@@ -215,6 +215,62 @@ const UI = {
     },
 
     /**
+     * Show toast notification
+     */
+    showToast(message) {
+        // Remove existing toast
+        const existing = document.querySelector('.toast-notification');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        // Trigger reflow
+        toast.offsetHeight;
+
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    },
+
+    /**
+     * Update movie favorite button state
+     */
+    updateMovieFavoriteButton(isFavorite) {
+        const btn = document.getElementById('movie-favorite-btn');
+        const icon = document.getElementById('movie-favorite-icon');
+        const text = document.getElementById('movie-favorite-text');
+
+        if (btn) {
+            btn.classList.toggle('active', isFavorite);
+            if (icon) icon.style.fill = isFavorite ? '#f59e0b' : 'none'; // Gold if fav
+            if (icon) icon.style.stroke = isFavorite ? '#f59e0b' : 'currentColor';
+            if (text) text.textContent = isFavorite ? 'Favorited' : 'Favorite';
+        }
+    },
+
+    /**
+     * Update series favorite button state
+     */
+    updateSeriesFavoriteButton(isFavorite) {
+        const btn = document.getElementById('series-favorite-btn');
+        const icon = document.getElementById('series-favorite-icon');
+        const text = document.getElementById('series-favorite-text');
+
+        if (btn) {
+            btn.classList.toggle('active', isFavorite);
+            if (icon) icon.style.fill = isFavorite ? '#f59e0b' : 'none';
+            if (icon) icon.style.stroke = isFavorite ? '#f59e0b' : 'currentColor';
+            if (text) text.textContent = isFavorite ? 'Favorited' : 'Favorite';
+        }
+    },
+
+    /**
      * Update profile name in header
      */
     updateProfileName() {
@@ -362,7 +418,7 @@ const UI = {
             const isHD = ch.hd || ch.name.toLowerCase().includes('hd');
 
             return `
-            <div class="channel-card focusable ${isSelected ? 'selected' : ''}" tabindex="0" onclick="Actions.playChannel(${i})">
+            <div class="channel-card focusable ${isSelected ? 'selected' : ''}" data-channel-id="${ch.id}" tabindex="0" onclick="Actions.playChannel(${i})">
                 <div class="channel-logo">
                     ${ch.logo
                     ? `<img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="channel-logo-text" style="display:none">${ch.name.substring(0, 3).toUpperCase()}</span>`
@@ -372,10 +428,42 @@ const UI = {
                 <div class="channel-info">
                     <div class="channel-name">${ch.name}</div>
                     ${currentProgram ? `<div class="channel-program">${currentProgram}</div>` : `<div class="channel-views">#${ch.number}</div>`}
-                    ${isHD ? '<div class="channel-badges"><span class="badge">HD</span></div>' : ''}
+                    <div class="channel-badges">
+                        ${isHD ? '<span class="badge">HD</span>' : ''}
+                        ${FavoritesManager.isFavorite('channels', ch.id) ?
+                    '<span class="favorite-star"><svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>'
+                    : ''
+                }
+                    </div>
                 </div>
+                <!-- Favorite Action Button (Hidden but accessible via long press or explicit focus) -->
+                 <button class="channel-fav-btn" onclick="event.stopPropagation(); Actions.toggleChannelFavoriteById('${ch.id}')" tabindex="-1" style="display:none"></button>
             </div>
         `}).join('');
+
+        // Add remote legend if not present
+        this.renderRemoteLegend();
+    },
+
+    /**
+     * Render remote control legend for channels
+     */
+    renderRemoteLegend() {
+        // Check if legend already exists
+        let legend = document.getElementById('remote-legend');
+        if (!legend) {
+            legend = document.createElement('div');
+            legend.id = 'remote-legend';
+            legend.className = 'remote-legend';
+            document.querySelector('.channels-content').appendChild(legend);
+        }
+
+        legend.innerHTML = `
+            <div class="legend-item">
+                <span class="legend-key yellow"></span>
+                <span class="legend-text">Add/Remove Favorite</span>
+            </div>
+        `;
     },
 
     /**
@@ -537,53 +625,10 @@ const UI = {
                     <h3 class="movie-title">${s.name}</h3>
                     <div class="movie-meta">
                         ${s.year ? `<span>${s.year}</span>` : ''}
-                        ${s.seasons ? `<span>${s.seasons.length} Seasons</span>` : ''}
                     </div>
                 </div>
             </div >
     `).join('');
-    },
-
-    /**
-     * Show series details
-     */
-    showSeriesDetails(series) {
-        const backdropEl = document.getElementById('series-detail-backdrop');
-        const posterEl = document.getElementById('series-detail-poster');
-
-        if (backdropEl) backdropEl.src = series.poster || '';
-        if (posterEl) posterEl.src = series.poster || '';
-
-        document.getElementById('series-detail-title').textContent = series.name;
-        document.getElementById('series-detail-tagline').textContent = series.genres || '';
-        document.getElementById('series-detail-year').textContent = series.year || '';
-
-        // Count seasons if available, or just generic
-        const seasonsCount = series.seasons ? series.seasons.length : (series.season_count || 1);
-        document.getElementById('series-detail-seasons').textContent = `${seasonsCount} Season${seasonsCount !== 1 ? 's' : ''} `;
-
-        const ratingEl = document.getElementById('series-detail-rating');
-        if (ratingEl) {
-            ratingEl.innerHTML = series.rating ? `
-    < svg viewBox = "0 0 24 24" > <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg >
-        ${series.rating}
-` : '';
-        }
-
-        document.getElementById('series-detail-description').textContent = series.description || 'No description available.';
-        document.getElementById('series-detail-cast').textContent = series.actors || 'Unknown';
-
-        const genresEl = document.getElementById('series-detail-genres');
-        if (genresEl && series.genres) {
-            genresEl.innerHTML = series.genres.split(',').map(g =>
-                `< span class="genre-tag" > ${g.trim()}</span > `
-            ).join('');
-        }
-
-        // Store current series for playback
-        this.currentSeries = series;
-
-        ScreenManager.show('series-details');
     },
 
     /**
@@ -604,9 +649,9 @@ const UI = {
         const ratingEl = document.getElementById('detail-rating');
         if (ratingEl) {
             ratingEl.innerHTML = movie.rating ? `
-    < svg viewBox = "0 0 24 24" > <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" /></svg >
-        ${movie.rating}
-` : '';
+                <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                ${movie.rating}
+            ` : '';
         }
 
         document.getElementById('detail-description').textContent = movie.description || 'No description available.';
@@ -615,12 +660,16 @@ const UI = {
         const genresEl = document.getElementById('detail-genres');
         if (genresEl && movie.genres) {
             genresEl.innerHTML = movie.genres.split(',').map(g =>
-                `< span class="genre-tag" > ${g.trim()}</span > `
+                `<span class="genre-tag">${g.trim()}</span>`
             ).join('');
         }
 
         // Store current movie for playback
         this.currentMovie = movie;
+
+        // Update favorite button state
+        const isFav = FavoritesManager.isFavorite('movies', movie.id);
+        this.updateMovieFavoriteButton(isFav);
 
         ScreenManager.show('movie-details');
     },
@@ -670,22 +719,127 @@ const UI = {
     },
 
     /**
-     * Update player UI
+     * Update player UI for channel playback
      */
     updatePlayerUI(channel) {
-        const nameEl = document.querySelector('.channel-name-large');
-        const numberEl = document.querySelector('.channel-number');
-        const logoEl = document.querySelector('.channel-logo-large');
+        // Show channel overlay, hide VOD overlay
+        const channelOverlay = document.getElementById('channel-overlay');
+        const vodOverlay = document.getElementById('vod-overlay');
+        if (channelOverlay) channelOverlay.style.display = 'flex';
+        if (vodOverlay) vodOverlay.style.display = 'none';
+
+        const nameEl = document.getElementById('player-channel-name');
+        const numberEl = document.getElementById('player-channel-number');
+        const logoEl = document.getElementById('player-channel-logo');
 
         if (nameEl) nameEl.textContent = channel.name;
         if (numberEl) numberEl.textContent = String(channel.number).padStart(3, '0');
 
         if (logoEl && channel.logo) {
             logoEl.innerHTML = `<img src="${channel.logo}" alt="${channel.name}" style="max-width:100%;max-height:100%;" onerror="this.parentElement.innerHTML='${channel.name.substring(0, 3).toUpperCase()}'">`;
+        } else if (logoEl) {
+            logoEl.innerHTML = `<span style="font-size:16px;font-weight:700;color:#333">${channel.name.substring(0, 8).toUpperCase()}</span>`;
+        }
+
+        // Add favorite legend under channel name details if not present
+        let detailsContainer = document.querySelector('.channel-details');
+        const isFav = FavoritesManager.isFavorite('channels', channel.id);
+
+        let legend = detailsContainer ? detailsContainer.querySelector('.channel-favorite-legend') : null;
+
+        if (detailsContainer && !legend) {
+            legend = document.createElement('div');
+            legend.className = 'channel-favorite-legend';
+            detailsContainer.appendChild(legend);
+        }
+
+        if (legend) {
+            legend.innerHTML = isFav
+                ? `<div class="legend-icon"><svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" width="16" height="16"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div><div class="legend-label">Favorited</div>`
+                : `<div class="legend-dot"></div><div class="legend-label">Press Yellow to Favorite</div>`;
         }
 
         // Show overlay and start timer
         this.showPlayerOverlay();
+    },
+
+    /**
+     * Update favorite status in player UI
+     */
+    updatePlayerChannelFavoriteStatus(isFavorite) {
+        const legend = document.querySelector('.channel-favorite-legend');
+        if (legend) {
+            legend.innerHTML = isFavorite
+                ? `<div class="legend-icon"><svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" width="16" height="16"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div><div class="legend-label">Favorited</div>`
+                : `<div class="legend-dot"></div><div class="legend-label">Press Yellow to Favorite</div>`;
+        }
+    },
+
+    /**
+     * Update player UI for VOD (movie/series) playback
+     */
+    updatePlayerUIForVod(vod) {
+        // Show VOD overlay, hide channel overlay
+        const channelOverlay = document.getElementById('channel-overlay');
+        const vodOverlay = document.getElementById('vod-overlay');
+        if (channelOverlay) channelOverlay.style.display = 'none';
+        if (vodOverlay) vodOverlay.style.display = 'flex';
+
+        const titleEl = document.getElementById('player-vod-title');
+        const metaEl = document.getElementById('player-vod-meta');
+
+        if (titleEl) titleEl.textContent = vod.name || 'Unknown';
+
+        // Build meta string (year, duration)
+        let metaParts = [];
+        if (vod.year) metaParts.push(vod.year);
+        if (vod.duration) metaParts.push(vod.duration);
+        if (metaEl) metaEl.textContent = metaParts.join(' • ') || '';
+
+        // Setup progress bar updates
+        this.setupVodProgressUpdates();
+
+        // Show overlay
+        this.showPlayerOverlay();
+    },
+
+    /**
+     * Setup VOD progress bar updates
+     */
+    vodProgressInterval: null,
+    setupVodProgressUpdates() {
+        // Clear any existing interval
+        if (this.vodProgressInterval) {
+            clearInterval(this.vodProgressInterval);
+        }
+
+        // Update progress every second
+        this.vodProgressInterval = setInterval(() => {
+            if (!Player.videoElement || ScreenManager.currentScreen !== 'player') {
+                clearInterval(this.vodProgressInterval);
+                return;
+            }
+
+            const currentTime = Player.videoElement.currentTime || 0;
+            const duration = Player.videoElement.duration || 0;
+            const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+            const currentEl = document.getElementById('player-time-current');
+            const durationEl = document.getElementById('player-time-duration');
+            const progressEl = document.getElementById('player-progress-fill');
+
+            if (currentEl) currentEl.textContent = Player.formatTime(currentTime);
+            if (durationEl) durationEl.textContent = Player.formatTime(duration);
+            if (progressEl) progressEl.style.width = `${progress}%`;
+
+            // Update play/pause icon
+            const playIcon = document.getElementById('player-play-icon');
+            if (playIcon) {
+                playIcon.innerHTML = Player.isPlaying
+                    ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>'
+                    : '<path d="M8 5v14l11-7z"/>';
+            }
+        }, 500);
     },
 
     /**
@@ -886,6 +1040,242 @@ const UI = {
         if (playerDatetime) {
             const dateStr = `${(now.getMonth() + 1).toString().padStart(2, '0')} /${date.toString().padStart(2, '0')}/${now.getFullYear()} `;
             playerDatetime.textContent = `${dateStr}  ${hours}:${minutes}:${seconds} `;
+        }
+    },
+
+    /**
+     * Render Favorites Screen
+     * @param {string} type - 'channels', 'movies', or 'series'
+     */
+    renderFavoritesScreen(type = 'channels') {
+        // Update active tab styles
+        const tabs = document.querySelectorAll('.favorites-tabs .tab-btn');
+        tabs.forEach(btn => {
+            if (btn.textContent.toLowerCase().includes(type)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        const grid = document.getElementById('favorites-grid');
+        grid.innerHTML = '';
+
+        // Update Time
+        const timeDisplay = document.getElementById('favorites-time');
+        if (timeDisplay) {
+            const now = new Date();
+            timeDisplay.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        let items = [];
+
+        if (type === 'channels') {
+            items = FavoritesManager.getChannels();
+            // Use renderChannels logic but tailored for favorites grid
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="no-results" style="padding: 20px; color: var(--text-secondary);">No favorite channels added yet.</div>';
+            } else {
+                grid.className = 'favorites-grid channels-grid'; // ensure correct styling
+                grid.innerHTML = items.map((ch, i) => {
+                    const isSelected = false;
+                    const currentProgram = ch.cur_playing || '';
+
+                    return `
+                    <div class="channel-card focusable" data-channel-id="${ch.id}" tabindex="0" onclick="Actions.playFavoriteChannel('${ch.id}')">
+                        <div class="channel-logo">
+                            ${ch.logo
+                            ? `<img src="${ch.logo}" alt="${ch.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="channel-logo-text" style="display:none">${ch.name.substring(0, 3).toUpperCase()}</span>`
+                            : `<span class="channel-logo-text">${ch.name.substring(0, 3).toUpperCase()}</span>`
+                        }
+                        </div>
+                        <div class="channel-info">
+                            <div class="channel-name">${ch.name}</div>
+                            <div class="channel-views">#${ch.number || ''}</div>
+                            <div class="channel-badges">
+                                <span class="favorite-star"><svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" width="14" height="14"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+            }
+        } else if (type === 'movies') {
+            items = FavoritesManager.getMovies();
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="no-results" style="padding: 20px; color: var(--text-secondary);">No favorite movies added yet.</div>';
+            } else {
+                grid.className = 'favorites-grid movies-grid';
+                grid.innerHTML = items.map((movie, i) => {
+                    const posterUrl = movie.poster || movie.screenshot_uri || '';
+                    return `
+                    <div class="movie-card focusable" tabindex="0" onclick="Actions.openFavoriteMovie('${movie.id}')">
+                        <div class="movie-poster">
+                            <img src="${posterUrl}" alt="${movie.name}" onerror="this.parentElement.style.backgroundColor='#2d1f3d'">
+                            <div class="movie-overlay">
+                                <div class="play-btn">
+                                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="movie-info">
+                            <div class="movie-title">${movie.name}</div>
+                            <div class="movie-meta">
+                                <span class="movie-year">${movie.year || ''}</span>
+                                <span class="movie-rating">★ ${movie.rating || ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            }
+        } else if (type === 'series') {
+            items = FavoritesManager.getSeries();
+            if (items.length === 0) {
+                grid.innerHTML = '<div class="no-results" style="padding: 20px; color: var(--text-secondary);">No favorite series added yet.</div>';
+            } else {
+                grid.className = 'favorites-grid series-grid'; // Reuse series grid styles
+                grid.innerHTML = items.map((series, i) => {
+                    const posterUrl = series.poster || series.screenshot_uri || '';
+                    return `
+                    <div class="movie-card focusable" tabindex="0" onclick="Actions.openFavoriteSeries('${series.id}')">
+                        <div class="movie-poster">
+                            <img src="${posterUrl}" alt="${series.name}" onerror="this.parentElement.style.backgroundColor='#2d1f3d'">
+                             <div class="series-badge">${series.season_count ? series.season_count + ' Seasons' : ''}</div>
+                        </div>
+                        <div class="movie-info">
+                            <div class="movie-title">${series.name}</div>
+                            <div class="movie-meta">
+                                <span class="movie-year">${series.year || ''}</span>
+                                <span class="movie-rating">★ ${series.rating || ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+            }
+        }
+    },
+
+    /**
+     * Show Series Details Screen
+     */
+    async showSeriesDetails(series) {
+        if (!series) return;
+        this.currentSeries = series;
+
+        // Populate details
+        const backdrop = document.getElementById('series-details-backdrop');
+        const poster = document.getElementById('series-details-poster');
+        const title = document.getElementById('series-details-title');
+        const year = document.getElementById('series-details-year');
+        const seasons = document.getElementById('series-details-seasons');
+        const rating = document.getElementById('series-details-rating');
+        const desc = document.getElementById('series-details-description');
+        const favBtn = document.getElementById('series-fav-btn');
+
+        // Use screenshot_uri, cover, or poster for images
+        const imageUrl = series.screenshot_uri || series.cover || series.poster || series.backdrop || series.logo || '';
+        if (backdrop) backdrop.src = imageUrl;
+        if (poster) poster.src = imageUrl;
+
+        if (title) title.textContent = series.name || series.title || 'Unknown Series';
+        if (year) year.textContent = series.year || series.releaseDate || '';
+        if (seasons) seasons.textContent = series.season_count ? `${series.season_count} Season${series.season_count > 1 ? 's' : ''}` : '';
+
+        if (rating) {
+            const ratingValue = series.rating || series.rating_imdb || series.rating_kinopoisk;
+            if (ratingValue) {
+                rating.innerHTML = `
+                    <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                    ${ratingValue}
+                `;
+            } else {
+                rating.innerHTML = '';
+            }
+        }
+
+        if (desc) desc.textContent = series.description || series.plot || 'No description available for this series.';
+
+        // Setup Favorites button
+        if (favBtn) {
+            favBtn.onclick = () => Actions.toggleSeriesFavorite(series);
+            this.updateSeriesFavoriteButton(series);
+        }
+
+        // Populate Episodes List
+        const episodesList = document.getElementById('series-episodes-list');
+        if (episodesList) {
+            episodesList.innerHTML = '<div class="loading-text">Loading episodes...</div>';
+
+            // Fetch episodes from API
+            // Check if series object already has them (e.g. from previous fetch or full object)
+            let episodes = series.episodes || [];
+
+            if (episodes.length === 0) {
+                // Try to fetch from ContentManager
+                if (ContentManager.getSeriesEpisodes) {
+                    episodes = await ContentManager.getSeriesEpisodes(series);
+                    // Cache them on the series object
+                    series.episodes = episodes;
+                }
+            }
+
+            if (episodes.length === 0) {
+                episodesList.innerHTML = '<div class="no-results" style="padding: 20px;">No episodes found.</div>';
+                return;
+            }
+
+            // Render Episodes Grouped by Season
+            const html = episodes.reduce((acc, ep, index) => {
+                // Check if new season header needed
+                const prevEp = episodes[index - 1];
+                let header = '';
+                if (!prevEp || prevEp.season != ep.season) { // loose comparison for string/number
+                    header = `<h4 style="margin: 20px 0 10px 10px; color: var(--accent-primary);">Season ${ep.season}</h4>`;
+                }
+
+                return acc + header + `
+                    <div class="episode-item focusable" tabindex="0" onclick="Actions.playSeriesEpisode('${series.id}', '${ep.id}')">
+                        <div class="episode-number">${ep.episode}</div>
+                        <div class="episode-info">
+                            <div class="episode-title">${ep.name || 'Episode ' + ep.episode}</div>
+                            ${ep.duration ? `<div class="episode-duration">${ep.duration}</div>` : ''}
+                        </div>
+                        <div class="episode-play-icon">
+                            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                `;
+            }, '');
+
+            episodesList.innerHTML = html;
+        }
+
+        ScreenManager.show('series-details');
+    },
+
+    updateSeriesFavoriteButton(series) {
+        const btn = document.getElementById('series-fav-btn');
+        if (!btn) return;
+
+        const isFav = FavoritesManager.isFavorite('series', series.id);
+        if (isFav) {
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" style="fill: #f59e0b; stroke: #f59e0b;">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+                Remove from Favorites
+            `;
+            btn.classList.add('active');
+        } else {
+            btn.innerHTML = `
+                 <svg viewBox="0 0 24 24">
+                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                 </svg>
+                 Add to Favorites
+             `;
+            btn.classList.remove('active');
         }
     }
 };

@@ -8,7 +8,10 @@ const Navigation = {
      * Initialize navigation
      */
     init() {
-        document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        document.addEventListener('keydown', (e) => {
+            console.log('Key pressed:', e.key, 'Code:', e.code, 'KeyCode:', e.keyCode);
+            this.handleKeyDown(e);
+        });
     },
 
     /**
@@ -16,10 +19,13 @@ const Navigation = {
      */
     getZone(el) {
         if (el.closest('.channels-sidebar') || el.closest('.movies-sidebar')) return 'sidebar';
+        if (el.closest('.favorites-sidebar')) return 'favorites-sidebar';
         if (el.closest('.country-list') || el.closest('.genre-list')) return 'sidebar';
+        if (el.closest('.favorites-tabs')) return 'favorites-sidebar';
         if (el.closest('.channels-grid')) return 'channels-grid';
         if (el.closest('.movies-grid')) return 'movies-grid';
-        if (el.closest('.channels-header') || el.closest('.movies-header')) return 'header';
+        if (el.closest('.favorites-grid')) return 'favorites-grid';
+        if (el.closest('.channels-header') || el.closest('.movies-header') || el.closest('.favorites-header')) return 'header';
         if (el.closest('.sidebar-header')) return 'sidebar-header';
         if (el.closest('.mini-player')) return 'mini-player';
         if (el.closest('.category-cards')) return 'category-cards';
@@ -51,8 +57,8 @@ const Navigation = {
             key = 'Back';
         }
 
-        const validKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Back'];
-        if (validKeys.indexOf(key) === -1) return;
+        const validKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', 'Back', 'Unidentified', 'Yellow', 'Red', 'Green', 'Blue'];
+        if (validKeys.indexOf(key) === -1 && keyCode !== 405 && keyCode !== 403 && keyCode !== 404 && keyCode !== 406) return;
 
         const activeScreen = document.querySelector('.screen.active');
         if (!activeScreen) return;
@@ -106,6 +112,28 @@ const Navigation = {
             return;
         }
 
+        // Handle Yellow Button (Favorite) - 405
+        if (keyCode === 405 || key === 'Yellow') {
+            console.log('Yellow key pressed');
+
+            // Check if we are in player screen
+            if (activeScreen && activeScreen.id === 'player-screen') {
+                Actions.toggleCurrentChannelFavorite();
+                return;
+            }
+
+            // Otherwise check for focused channel card (grid view)
+            const channelCard = current ? current.closest('.channel-card') : null;
+
+            if (channelCard) {
+                const channelId = channelCard.getAttribute('data-channel-id');
+                if (channelId) {
+                    Actions.toggleChannelFavoriteById(channelId);
+                }
+            }
+            return;
+        }
+
         // Spatial navigation
         this.navigateSpatially(activeScreen, current, key);
     },
@@ -114,14 +142,26 @@ const Navigation = {
      * Handle back button
      */
     handleBack(screenId) {
-        if (screenId === 'channels-screen' || screenId === 'movies-screen' || screenId === 'profile-screen') {
+        if (screenId === 'channels-screen' || screenId === 'movies-screen' || screenId === 'series-screen' || screenId === 'profile-screen' || screenId === 'favorites-screen') {
             ScreenManager.show('home');
-        } else if (screenId === 'setup-screen' && AccountManager.hasAccounts()) {
-            ScreenManager.show('home');
-        } else if (screenId === 'player-screen') {
-            Actions.exitPlayer();
         } else if (screenId === 'movie-details-screen') {
             ScreenManager.show('movies');
+        } else if (screenId === 'series-details-screen') {
+            ScreenManager.show('series');
+        } else if (screenId === 'player-screen') {
+            // Stop the player
+            Player.stop();
+
+            // Go back to previous screen
+            const prevScreen = ScreenManager.previousScreen;
+            if (prevScreen && prevScreen !== 'player') {
+                ScreenManager.show(prevScreen);
+            } else {
+                // Fallback to channels if no previous screen
+                ScreenManager.show('channels');
+            }
+        } else if (screenId === 'settings-screen') {
+            ScreenManager.show('home');
         }
     },
 
@@ -188,9 +228,36 @@ const Navigation = {
                     if (key === 'ArrowUp' && dy < -5) isCandidate = true;
                     else if (key === 'ArrowDown' && dy > 5) isCandidate = true;
                     if (isCandidate) distance = Math.abs(dy) + Math.abs(dx) * 0.1;
-                } else if (key === 'ArrowRight' && ['channels-grid', 'movies-grid', 'header', 'mini-player'].includes(elZone)) {
+                } else if (key === 'ArrowRight' && ['channels-grid', 'movies-grid', 'header', 'mini-player', 'favorites-grid'].includes(elZone)) {
                     isCandidate = true;
                     distance = Math.abs(dx) + Math.abs(dy) * 0.5;
+                }
+                break;
+
+            case 'favorites-sidebar':
+                if (isVerticalKey && elZone === 'favorites-sidebar') {
+                    if (key === 'ArrowUp' && dy < -5) isCandidate = true;
+                    else if (key === 'ArrowDown' && dy > 5) isCandidate = true;
+                    if (isCandidate) distance = Math.abs(dy) + Math.abs(dx) * 0.1;
+                } else if (key === 'ArrowRight' && (elZone === 'favorites-grid' || elZone === 'header' || elZone === 'channels-grid' || elZone === 'movies-grid')) {
+                    // Added channels-grid and movies-grid just in case we reused those classes
+                    isCandidate = true;
+                    distance = Math.abs(dx) + Math.abs(dy) * 0.5;
+                }
+                break;
+
+            case 'favorites-grid':
+                if (elZone === 'favorites-grid') {
+                    if (key === 'ArrowUp' && dy < -5) { isCandidate = true; distance = Math.abs(dy) + Math.abs(dx) * 0.8; }
+                    else if (key === 'ArrowDown' && dy > 5) { isCandidate = true; distance = Math.abs(dy) + Math.abs(dx) * 0.8; }
+                    else if (key === 'ArrowLeft' && dx < -5) { isCandidate = true; distance = Math.abs(dx) + Math.abs(dy) * 0.8; }
+                    else if (key === 'ArrowRight' && dx > 5) { isCandidate = true; distance = Math.abs(dx) + Math.abs(dy) * 0.8; }
+                } else if (key === 'ArrowLeft' && (elZone === 'favorites-sidebar')) {
+                    isCandidate = true;
+                    distance = Math.abs(dy) * 0.5 + Math.abs(dx) * 0.1;
+                } else if (key === 'ArrowUp' && elZone === 'header') {
+                    isCandidate = true;
+                    distance = Math.abs(dy) + Math.abs(dx) * 0.3;
                 }
                 break;
 
@@ -234,10 +301,10 @@ const Navigation = {
                     if (key === 'ArrowLeft' && dx < -5) isCandidate = true;
                     else if (key === 'ArrowRight' && dx > 5) isCandidate = true;
                     if (isCandidate) distance = Math.abs(dx) + Math.abs(dy) * 0.1;
-                } else if (key === 'ArrowDown' && (elZone === 'channels-grid' || elZone === 'movies-grid')) {
+                } else if (key === 'ArrowDown' && (elZone === 'channels-grid' || elZone === 'movies-grid' || elZone === 'favorites-grid')) {
                     isCandidate = true;
                     distance = Math.abs(dy) + Math.abs(dx) * 0.3;
-                } else if (key === 'ArrowLeft' && (elZone === 'sidebar' || elZone === 'sidebar-header')) {
+                } else if (key === 'ArrowLeft' && (elZone === 'sidebar' || elZone === 'sidebar-header' || elZone === 'favorites-sidebar')) {
                     isCandidate = true;
                     distance = Math.abs(dx) + Math.abs(dy) * 0.3;
                 }
