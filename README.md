@@ -20,14 +20,6 @@ iptv-webos-app/
 │   ├── navigation.js     # TV remote/keyboard navigation
 │   ├── screens.js        # Screen management
 │   └── ui.js             # UI rendering functions
-├── components/           # HTML screen templates (reference)
-│   ├── setup-screen.html
-│   ├── profile-screen.html
-│   ├── home-screen.html
-│   ├── channels-screen.html
-│   ├── movies-screen.html
-│   ├── movie-details-screen.html
-│   └── player-screen.html
 └── images/
     ├── icon-80x80.png    # App icon (80x80)
     └── icon-130x130.png  # Large app icon (130x130)
@@ -91,15 +83,13 @@ The app is designed for 1920x1080 resolution. For testing, set your browser wind
 
 ## TODO
 
-- [ ] Integrate Stalker Portal API
-- [ ] Implement actual video playback (use webOS media APIs)
-- [ ] Add EPG (Electronic Program Guide) integration
-- [ ] Implement search functionality
-- [ ] Add favorites/watchlist sync
-- [ ] Parental controls
-- [ ] Multi-language support
+- [x] Integrate Stalker Portal API
+- [x] Implement actual video playback
+- [ ] Add Full EPG (Electronic Program Guide) integration
+- [x] Implement search functionality
+- [x] Add favorites/watchlist sync
 - [ ] Settings screen
-- [ ] Loading states and error handling
+- [x] Loading states and error handling
 
 ## License
 
