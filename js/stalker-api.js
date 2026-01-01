@@ -7,11 +7,14 @@ var StalkerAPI = {
     baseUrl: '',
     mac: '',
     token: '',
+    authMode: 'url-params', // 'url-params' or 'headers'
+    bearerToken: '',
+    useLunaService: false,
 
     /**
      * Initialize the API with account credentials
      */
-    init: function (portalUrl, macAddress) {
+    init: function (portalUrl, macAddress, authMode) {
         console.log('Original portal URL:', portalUrl);
 
         // Normalize portal URL - remove trailing slashes
@@ -26,7 +29,119 @@ var StalkerAPI = {
         }
 
         this.token = '';
-        console.log('StalkerAPI initialized - baseUrl:', this.baseUrl, 'MAC:', this.mac);
+        this.authMode = authMode || 'url-params';
+        this.bearerToken = '';
+        this.authModeDetected = false;
+
+        // Check if Luna Service is available
+        if (typeof StalkerLunaService !== 'undefined' && StalkerLunaService.checkAvailability()) {
+            console.log('Luna Service detected - will use proxy for all requests');
+            this.useLunaService = true;
+        } else {
+            console.log('Luna Service not available - using direct HTTP');
+            this.useLunaService = false;
+        }
+
+        console.log('StalkerAPI initialized - baseUrl:', this.baseUrl, 'MAC:', this.mac, 'Use Luna Service:', this.useLunaService);
+    },
+
+    /**
+     * Auto-detect authentication mode by trying to fetch genres
+     */
+    detectAuthMode: async function() {
+        console.log('Detecting authentication mode...');
+
+        // ALWAYS do handshake in URL params mode first
+        console.log('Performing handshake (always in URL params mode)...');
+        this.authMode = 'url-params';
+        this.bearerToken = '';
+
+        try {
+            await this.handshake();
+            console.log('Handshake successful, got token:', this.token);
+        } catch (error) {
+            console.error('Handshake failed:', error.message);
+            this.authModeDetected = true;
+            return 'url-params';
+        }
+
+        const handshakeToken = this.token;
+
+        // Try URL params mode (continue using token in URL)
+        console.log('Trying URL params authentication mode...');
+        this.authMode = 'url-params';
+
+        try {
+            const result = await this.request('get_genres', { type: 'itv' });
+            console.log('URL params result:', result);
+
+            if (result.js && Array.isArray(result.js) && result.js.length > 0) {
+                console.log('✓ Auth mode detected: url-params (got ' + result.js.length + ' genres)');
+                this.authModeDetected = true;
+                return 'url-params';
+            } else {
+                console.log('✗ URL params returned empty or invalid data');
+            }
+        } catch (error) {
+            console.log('✗ URL params method failed:', error.message);
+        }
+
+        // Try headers mode (use handshake token as Bearer token)
+        console.log('Trying headers authentication mode...');
+        this.authMode = 'headers';
+        this.bearerToken = handshakeToken;
+        console.log('Using handshake token as Bearer token for Authorization header');
+
+        try {
+            const result = await this.request('get_genres', { type: 'itv' });
+            console.log('Headers result:', result);
+
+            if (result.js && Array.isArray(result.js) && result.js.length > 0) {
+                console.log('✓ Auth mode detected: headers (got ' + result.js.length + ' genres)');
+                this.authModeDetected = true;
+                return 'headers';
+            } else {
+                console.log('✗ Headers returned empty or invalid data');
+            }
+        } catch (error) {
+            console.log('✗ Headers method failed:', error.message);
+        }
+
+        // Try headers mode with /c/ removed from URL (if present)
+        if (this.baseUrl.includes('/c/') || this.baseUrl.endsWith('/c')) {
+            const originalBaseUrl = this.baseUrl;
+            this.baseUrl = this.baseUrl.replace(/\/c\/?$/, '').replace(/\/c\//, '/');
+            console.log('Trying headers mode with /c/ removed from URL...');
+            console.log('Original URL:', originalBaseUrl);
+            console.log('Modified URL:', this.baseUrl);
+
+            try {
+                const result = await this.request('get_genres', { type: 'itv' });
+                console.log('Headers result (without /c/):', result);
+
+                if (result.js && Array.isArray(result.js) && result.js.length > 0) {
+                    console.log('✓ Auth mode detected: headers without /c/ (got ' + result.js.length + ' genres)');
+                    this.authModeDetected = true;
+                    return 'headers';
+                } else {
+                    console.log('✗ Headers without /c/ returned empty or invalid data');
+                    // Restore original URL if this didn't work
+                    this.baseUrl = originalBaseUrl;
+                }
+            } catch (error) {
+                console.log('✗ Headers method without /c/ failed:', error.message);
+                // Restore original URL
+                this.baseUrl = originalBaseUrl;
+            }
+        }
+
+        // Default to url-params if both fail
+        console.log('⚠ Could not detect auth mode, defaulting to url-params');
+        this.authMode = 'url-params';
+        this.token = handshakeToken;
+        this.bearerToken = '';
+        this.authModeDetected = true;
+        return 'url-params';
     },
 
     /**
@@ -36,37 +151,86 @@ var StalkerAPI = {
         var self = this;
         params = params || {};
 
-        // Build the full URL
-        var fullUrl = this.baseUrl + '/server/load.php';
-
-        // Build query string - MAC is always required
-        var queryParams = [];
-        queryParams.push('type=' + encodeURIComponent(params.type || 'stb'));
-        queryParams.push('action=' + encodeURIComponent(action));
-        queryParams.push('mac=' + encodeURIComponent(this.mac));
-
-        // Add token if we have one (required after handshake)
-        if (this.token) {
-            queryParams.push('token=' + encodeURIComponent(this.token));
+        // Use Luna Service if available
+        if (this.useLunaService) {
+            console.log('Using Luna Service for request:', action);
+            return StalkerLunaService.request(action, params);
         }
 
-        // Add additional params
-        for (var key in params) {
-            if (params.hasOwnProperty(key) && key !== 'type') {
-                queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+        var fullUrl, headers, queryParams;
+
+        if (this.authMode === 'headers') {
+            // Header-based authentication mode (but using URL params since headers are blocked)
+            fullUrl = this.baseUrl + '/portal.php';
+
+            // Build query string
+            queryParams = [];
+            queryParams.push('type=' + encodeURIComponent(params.type || 'stb'));
+            queryParams.push('action=' + encodeURIComponent(action));
+
+            // Add MAC, timezone, and adid as URL params (since Cookie header is blocked)
+            queryParams.push('mac=' + encodeURIComponent(this.mac));
+            queryParams.push('timezone=' + encodeURIComponent('Africa/Accra'));
+            queryParams.push('adid=' + encodeURIComponent('d958e2325c08699dd45a006a415f7a51'));
+
+            // Add bearer token as URL param (since Authorization header is also blocked)
+            if (this.bearerToken) {
+                console.log('Adding token as URL parameter (Authorization header is blocked)');
+                queryParams.push('token=' + encodeURIComponent(this.bearerToken));
             }
-        }
 
-        fullUrl += '?' + queryParams.join('&');
+            // Add additional params
+            for (var key in params) {
+                if (params.hasOwnProperty(key) && key !== 'type') {
+                    queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+                }
+            }
+
+            fullUrl += '?' + queryParams.join('&');
+
+            // Build headers
+            headers = {
+                'Accept': '*/*',
+                'Accept-Language': 'en-GB',
+                'User-Agent': 'Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.5359.211 Safari/537.36 WebAppManager'
+            };
+        } else {
+            // URL parameter-based authentication mode (default)
+            fullUrl = this.baseUrl + '/server/load.php';
+
+            // Build query string - MAC is always required
+            queryParams = [];
+            queryParams.push('type=' + encodeURIComponent(params.type || 'stb'));
+            queryParams.push('action=' + encodeURIComponent(action));
+            queryParams.push('mac=' + encodeURIComponent(this.mac));
+
+            // Add token if we have one (required after handshake)
+            if (this.token) {
+                queryParams.push('token=' + encodeURIComponent(this.token));
+            }
+
+            // Add additional params
+            for (var key in params) {
+                if (params.hasOwnProperty(key) && key !== 'type') {
+                    queryParams.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+                }
+            }
+
+            fullUrl += '?' + queryParams.join('&');
+
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3',
+                'X-User-Agent': 'Model: MAG250; Link: WiFi'
+            };
+        }
 
         console.log('API Request:', fullUrl);
+        console.log('Auth Mode:', this.authMode);
+        console.log('Request Headers:', JSON.stringify(headers, null, 2));
 
         return fetch(fullUrl, {
             method: 'GET',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3',
-                'X-User-Agent': 'Model: MAG250; Link: WiFi'
-            }
+            headers: headers
         })
             .then(function (response) {
                 return response.text();
@@ -91,6 +255,7 @@ var StalkerAPI = {
      */
     handshake: function () {
         var self = this;
+
         console.log('Performing handshake with MAC:', this.mac);
 
         return this.request('handshake', {
@@ -130,6 +295,21 @@ var StalkerAPI = {
     connect: function () {
         var self = this;
 
+        // Use Luna Service if available
+        if (this.useLunaService) {
+            console.log('Initializing Luna Service...');
+            return StalkerLunaService.init(this.baseUrl, this.mac)
+                .then(function() {
+                    console.log('Luna Service initialized successfully');
+                    return { success: true };
+                })
+                .catch(function(error) {
+                    console.error('Luna Service initialization failed:', error);
+                    return { success: false, error: error.message || 'Luna Service init failed' };
+                });
+        }
+
+        // Otherwise use direct HTTP
         return this.handshake()
             .then(function () {
                 return self.getProfile();

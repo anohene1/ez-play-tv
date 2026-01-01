@@ -1,0 +1,15 @@
+{
+  "id": "com.ezplaytv.stalker.service",
+  "version": "1.0.0",
+  "vendor": "EZ Play TV",
+  "type": "native_service",
+  "main": "service.js",
+  "title": "Stalker Portal Proxy Service",
+  "icon": "icon.png",
+  "services": [
+    {
+      "name": "com.ezplaytv.stalker.service",
+      "description": "Stalker Portal HTTP Proxy"
+    }
+  ]
+}

@@ -40,11 +40,22 @@ const ContentManager = {
         // Initialize Stalker API
         StalkerAPI.init(account.url, account.mac);
 
-        // Connect to portal
-        const result = await StalkerAPI.connect();
-        if (!result.success) {
-            console.error('Failed to connect:', result.error);
-            return false;
+        // If using Luna/Proxy Service, initialize it first
+        if (StalkerAPI.useLunaService) {
+            console.log('Using Proxy Service - initializing...');
+            const result = await StalkerAPI.connect();
+            if (!result.success) {
+                console.error('Proxy Service initialization failed:', result.error);
+                return false;
+            }
+            console.log('Proxy Service initialized successfully');
+            return true;
+        }
+
+        // Otherwise, auto-detect authentication mode (this also performs handshake if needed)
+        if (!StalkerAPI.authModeDetected) {
+            const detectedMode = await StalkerAPI.detectAuthMode();
+            console.log('Using authentication mode:', detectedMode);
         }
 
         console.log('Connected to portal');

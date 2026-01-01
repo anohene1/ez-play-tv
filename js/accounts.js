@@ -73,10 +73,10 @@ const AccountManager = {
             mac: mac,
             createdAt: new Date().toISOString()
         };
-        
+
         this.accounts.push(account);
         this.save();
-        
+
         // Set as active if first account
         if (this.accounts.length === 1) {
             this.activeAccountId = account.id;

@@ -39,6 +39,10 @@ const Actions = {
             // Clear content cache for new account
             ContentManager.clearCache();
 
+            // Initialize ContentManager with new account
+            UI.showLoading(true, 'Initializing...');
+            await ContentManager.init();
+
             // Preload content
             UI.showLoading(true, 'Loading content...');
             await ContentManager.preloadContent();
@@ -57,6 +61,10 @@ const Actions = {
                 document.getElementById('portal-url').value = '';
                 document.getElementById('mac-address').value = '';
                 document.getElementById('account-name').value = '';
+
+                // Still need to initialize even on error
+                await ContentManager.init();
+
                 ScreenManager.show('home');
             }
         }
