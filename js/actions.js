@@ -4,6 +4,8 @@
  */
 
 const Actions = {
+    refreshingHome: false,
+
     /**
      * Save new account from setup form
      */
@@ -84,6 +86,45 @@ const Actions = {
         UI.showLoading(false);
 
         ScreenManager.show('home');
+    },
+
+    /**
+     * Refresh portal categories and initial content from the Home screen.
+     * Triggered by the green remote button.
+     */
+    async refreshHomeContent() {
+        if (this.refreshingHome || ScreenManager.getCurrent() !== 'home') return;
+
+        this.refreshingHome = true;
+        UI.showLoading(true, 'Refreshing categories...');
+
+        try {
+            await ContentManager.refresh();
+
+            UI.genres = ContentManager.cache.genres || [];
+            UI.vodCategories = ContentManager.cache.vodCategories || [];
+            UI.seriesCategories = ContentManager.cache.seriesCategories || [];
+
+            const channels = ContentManager.cache.channels['*_1'];
+            const movies = ContentManager.cache.vodItems['*_1_'];
+            const series = ContentManager.cache.series['*_1_'];
+            UI.channels = channels ? channels.channels : [];
+            UI.movies = movies ? movies.items : [];
+            UI.series = series ? series.items : [];
+            UI._allChannels = null;
+            UI._allMovies = null;
+            UI._allSeries = null;
+            UI.updateHomeStats();
+            UI.showToast('Categories refreshed');
+        } catch (error) {
+            console.error('Home refresh failed:', error);
+            UI.showError('Refresh failed. Kept the last loaded categories.');
+        } finally {
+            UI.showLoading(false);
+            this.refreshingHome = false;
+            const liveTvCard = document.getElementById('livetv-card');
+            if (liveTvCard) liveTvCard.focus();
+        }
     },
 
     /**
@@ -278,18 +319,17 @@ const Actions = {
                 const streamUrl = await ContentManager.getChannelStream(channel);
                 if (!streamUrl) throw new Error('Failed to get stream URL');
 
-                console.log('Mini Player Stream:', streamUrl);
-
                 Player.onPlaying = () => {
                     // Can hide loading indicators here
                 };
                 Player.currentChannel = channel;
 
                 await Player.play(streamUrl);
+                WatchHistoryManager.record('channels', channel);
 
             } catch (error) {
                 console.error('Mini player error:', error);
-                UI.showError('Preview failed');
+                UI.showError('Preview failed: ' + error.message);
             }
         }
     },
@@ -346,8 +386,6 @@ const Actions = {
                 throw new Error('Failed to get stream URL');
             }
 
-            console.log('VOD Stream URL:', streamUrl);
-
             ScreenManager.show('player');
             await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -364,6 +402,7 @@ const Actions = {
             Player.currentChannel = null; // Clear channel context
             UI.updatePlayerUIForVod(movie);
             await Player.play(streamUrl);
+            WatchHistoryManager.record('movies', movie);
 
         } catch (error) {
             UI.showLoading(false);
@@ -472,8 +511,6 @@ const Actions = {
                 throw new Error('Failed to get stream URL');
             }
 
-            console.log('Series Stream URL:', streamUrl);
-
             ScreenManager.show('player');
             await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -490,6 +527,7 @@ const Actions = {
             Player.currentChannel = null; // Clear channel context
             UI.updatePlayerUIForVod(series);
             await Player.play(streamUrl);
+            WatchHistoryManager.record('series', series);
 
         } catch (error) {
             UI.showLoading(false);
@@ -502,41 +540,18 @@ const Actions = {
      * Exit player screen
      */
     exitPlayer() {
-        // If playing a channel, collapse to mini-player
-        if (Player.currentChannel) {
-            console.log('Collapsing to mini-player');
+        const wasPlayingChannel = !!Player.currentChannel;
+        const previousScreen = ScreenManager.previousScreen;
+        const destination = previousScreen && previousScreen !== 'player'
+            ? previousScreen
+            : (wasPlayingChannel ? 'channels' : 'home');
 
-            const channel = Player.currentChannel;
-            const videoEl = document.getElementById('video-player');
-            const miniContainer = document.querySelector('.mini-player-video');
-
-            if (videoEl && miniContainer) {
-                // Determine if we should collapse or stop
-                // For seamless experience, we collapse back to mini player
-
-                videoEl.style.objectFit = 'cover';
-                miniContainer.appendChild(videoEl);
-
-                // Restore state so clicking it again goes back to full screen
-                this.currentMiniPlayerChannelId = channel.id;
-            }
-
-            ScreenManager.show('channels');
-        } else {
-            // If VOD or unknown, stop and go back
-            // For now default to home or whatever was previous? 
-            // Navigation logic usually handles "where to go", but since we intercept here:
-
-            Player.stop();
-
-            if (Player.currentVod) {
-                // Ideally return to details or grid
-                // For simplified flow, let's guess based on VOD type or just go Movies
-                ScreenManager.show('movies');
-            } else {
-                ScreenManager.show('home');
-            }
-        }
+        this.currentMiniPlayerChannelId = null;
+        Player.stop();
+        Player.currentChannel = null;
+        Player.currentVod = null;
+        UI.showLoading(false);
+        ScreenManager.show(destination);
     },
 
     /**
@@ -565,7 +580,7 @@ const Actions = {
     playerVolumeUp() { Player.setVolume(Player.getVolume() + 0.1); },
     playerVolumeDown() { Player.setVolume(Player.getVolume() - 0.1); },
     playerToggleMute() { Player.toggleMute(); },
-    playerStop() { Player.stop(); ScreenManager.show('channels'); },
+    playerStop() { this.exitPlayer(); },
 
     /**
      * Channel up/down in player
@@ -720,9 +735,12 @@ const Actions = {
     async playSeriesEpisode(seriesId, episodeId) {
         // Find series and episode
         let series = UI.currentSeries;
-        if (!series || series.id !== seriesId) {
-            const seriesList = FavoritesManager.getSeries(); // Fallback check favorites
-            series = seriesList.find(s => s.id === seriesId);
+        if (!series || String(series.id) !== String(seriesId)) {
+            const seriesList = [
+                ...FavoritesManager.getSeries(),
+                ...WatchHistoryManager.getSeries()
+            ];
+            series = seriesList.find(s => String(s.id) === String(seriesId));
         }
 
         if (!series) {
@@ -732,7 +750,7 @@ const Actions = {
 
         let episode = null;
         if (series.episodes) {
-            episode = series.episodes.find(e => e.id === episodeId);
+            episode = series.episodes.find(e => String(e.id) === String(episodeId));
         }
 
         if (!episode) {
@@ -765,8 +783,6 @@ const Actions = {
                 throw new Error('Failed to get stream URL');
             }
 
-            console.log('Episode Stream URL:', streamUrl);
-
             ScreenManager.show('player');
             await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -783,6 +799,7 @@ const Actions = {
             Player.currentChannel = null;
             UI.updatePlayerUIForVod(episode);
             await Player.play(streamUrl);
+            WatchHistoryManager.record('series', series);
 
         } catch (error) {
             UI.showLoading(false);

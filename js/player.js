@@ -10,6 +10,7 @@ const Player = {
     currentUrl: '',
     currentType: '', // 'hls', 'mpegts', 'native'
     isPlaying: false,
+    lastError: null,
     currentChannel: null,
     currentVod: null,
 
@@ -73,12 +74,33 @@ const Player = {
      */
     getProxiedUrl(url) {
         // For development/browser testing, route through local proxy to bypass CORS
-        // We assume proxy is running on localhost:3000
-        const PROXY_BASE = 'http://localhost:3000/?url=';
+        const PROXY_BASE = 'http://localhost:3001/stream?url=';
+        // A packaged webOS app may itself have a localhost origin. In that
+        // environment localhost is the TV/simulator, not the dev machine.
+        if (this.isWebOSPlatform()) {
+            return url;
+        }
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             return PROXY_BASE + encodeURIComponent(url);
         }
         return url;
+    },
+
+    getPlaybackUrl(url, streamType) {
+        if (this.isWebOSPlatform()
+            && streamType === 'mpegts'
+            && typeof StalkerLunaService !== 'undefined'
+            && typeof StalkerLunaService.getStreamProxyUrl === 'function') {
+            return StalkerLunaService.getStreamProxyUrl(url);
+        }
+        return this.getProxiedUrl(url);
+    },
+
+    isWebOSPlatform() {
+        return typeof webOS !== 'undefined'
+            && (typeof PalmSystem !== 'undefined'
+                || typeof webOSSystem !== 'undefined'
+                || (webOS.platform && webOS.platform.tv === true));
     },
 
     /**
@@ -100,6 +122,12 @@ const Player = {
             return 'mpegts';
         }
 
+        // Stalker portals commonly expose extensionless live MPEG-TS URLs.
+        if (/\/live\/play\//i.test(url)) {
+            console.log('Extensionless live stream detected as MPEG-TS');
+            return 'mpegts';
+        }
+
         // Fallbacks
         if (lowerUrl.includes('type=m3u8')) return 'hls';
         if (lowerUrl.includes('type=ts')) return 'mpegts';
@@ -112,19 +140,40 @@ const Player = {
      * Play a stream URL
      */
     async play(url, forceType = null) {
-        console.log('Playing URL:', url);
+        if (!url || !/^https?:\/\//i.test(url)) {
+            throw new Error('Portal returned an invalid stream URL');
+        }
+
+        // stop() intentionally detaches stale handlers. Preserve the handlers
+        // configured for this new playback request and restore them afterward.
+        const callbacks = {
+            onError: this.onError,
+            onPlaying: this.onPlaying,
+            onPaused: this.onPaused,
+            onBuffering: this.onBuffering,
+            onTimeUpdate: this.onTimeUpdate,
+        };
 
         // Stop any existing playback
         this.stop();
+        Object.assign(this, callbacks);
+        this.lastError = null;
 
-        // Apply proxy for development
-        const playUrl = this.getProxiedUrl(url);
+        const detectedType = forceType || this.detectStreamType(url);
+        // LG's native pipeline is preferred for HLS. Raw MPEG-TS IPTV streams
+        // require Media Source Extensions, so retain the mpegts.js engine.
+        this.currentType = this.isWebOSPlatform() && detectedType === 'hls'
+            ? 'native'
+            : detectedType;
+
+        // Browser development uses the desktop proxy. Packaged webOS MPEG-TS
+        // playback uses the loopback proxy hosted by the bundled JS service.
+        const playUrl = this.getPlaybackUrl(url, this.currentType);
         if (playUrl !== url) {
-            console.log('Using proxied URL:', playUrl);
+            console.log('Using stream proxy');
         }
 
         this.currentUrl = playUrl;
-        this.currentType = forceType || this.detectStreamType(url); // Detect type from original URL
 
         console.log('Stream type:', this.currentType);
 
@@ -143,6 +192,30 @@ const Player = {
             return true;
         } catch (error) {
             console.error('Playback error:', error);
+            let finalError = error;
+
+            // Some legacy IPTV origins advertise HTTPS even though their TLS
+            // endpoint cannot negotiate with webOS (or is not configured at
+            // all). Retry the identical stream over HTTP only after the native
+            // HTTPS request has failed.
+            if (this.isWebOSPlatform() && /^https:\/\//i.test(url)) {
+                const legacyHttpUrl = url.replace(/^https:\/\//i, 'http://');
+                const legacyPlayUrl = this.getPlaybackUrl(legacyHttpUrl, this.currentType);
+                console.warn('HTTPS stream failed; retrying legacy stream over HTTP');
+                try {
+                    this.currentUrl = legacyPlayUrl;
+                    if (this.currentType === 'mpegts') {
+                        this.destroyMpegtsPlayer();
+                        await this.playMpegts(legacyPlayUrl);
+                    } else {
+                        await this.playNative(legacyPlayUrl);
+                    }
+                    return true;
+                } catch (fallbackError) {
+                    console.error('HTTP stream fallback also failed:', fallbackError);
+                    finalError = fallbackError;
+                }
+            }
 
             // Try fallback methods
             if (this.currentType === 'hls') {
@@ -152,11 +225,14 @@ const Player = {
                     return true;
                 } catch (e) {
                     console.error('Native fallback also failed:', e);
+                    finalError = e;
                 }
             }
 
-            if (this.onError) this.onError(error);
-            return false;
+            if (this.onError) this.onError(finalError);
+            if (this.currentType === 'mpegts') this.destroyMpegtsPlayer();
+            this.lastError = finalError;
+            throw finalError;
         }
     },
 
@@ -228,6 +304,16 @@ const Player = {
     /**
      * Play using mpegts.js
      */
+    destroyMpegtsPlayer() {
+        if (!this.mpegtsPlayer) return;
+
+        try { this.mpegtsPlayer.pause(); } catch (error) {}
+        try { this.mpegtsPlayer.unload(); } catch (error) {}
+        try { this.mpegtsPlayer.detachMediaElement(); } catch (error) {}
+        try { this.mpegtsPlayer.destroy(); } catch (error) {}
+        this.mpegtsPlayer = null;
+    },
+
     async playMpegts(url) {
         if (typeof mpegts === 'undefined') {
             throw new Error('mpegts.js not loaded');
@@ -238,6 +324,43 @@ const Player = {
         }
 
         return new Promise((resolve, reject) => {
+            let settled = false;
+            const timeout = setTimeout(() => {
+                finish(new Error('MPEG-TS stream did not start within 20 seconds'));
+            }, 20000);
+
+            const cleanup = () => {
+                clearTimeout(timeout);
+                this.videoElement.removeEventListener('playing', onPlaying);
+                this.videoElement.removeEventListener('error', onVideoError);
+                if (this.mpegtsPlayer && typeof this.mpegtsPlayer.off === 'function') {
+                    this.mpegtsPlayer.off(mpegts.Events.ERROR, onMpegtsError);
+                }
+            };
+
+            const finish = (error) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (error) reject(error);
+                else resolve();
+            };
+
+            const onPlaying = () => finish();
+            const onVideoError = () => {
+                const mediaError = this.videoElement.error;
+                const code = mediaError && mediaError.code ? ` (media error ${mediaError.code})` : '';
+                finish(new Error('MPEG-TS playback error' + code));
+            };
+            const onMpegtsError = (errorType, errorDetail, errorInfo) => {
+                console.error('mpegts error:', errorType, errorDetail, errorInfo);
+                const details = [];
+                if (errorDetail) details.push(errorDetail);
+                if (errorInfo && errorInfo.msg) details.push(errorInfo.msg);
+                if (errorInfo && errorInfo.code !== undefined) details.push('code ' + errorInfo.code);
+                finish(new Error('MPEG-TS stream error: ' + (details.join(' - ') || errorType)));
+            };
+
             this.mpegtsPlayer = mpegts.createPlayer({
                 type: 'mpegts',
                 url: url,
@@ -251,21 +374,21 @@ const Player = {
                 autoCleanupMinBackwardDuration: 15,
             });
 
-            this.mpegtsPlayer.on(mpegts.Events.ERROR, (errorType, errorDetail, errorInfo) => {
-                console.error('mpegts error:', errorType, errorDetail, errorInfo);
-                reject(new Error('mpegts error: ' + errorType));
-            });
+            this.mpegtsPlayer.on(mpegts.Events.ERROR, onMpegtsError);
 
             this.mpegtsPlayer.on(mpegts.Events.LOADING_COMPLETE, () => {
                 console.log('mpegts loading complete');
             });
 
+            this.videoElement.addEventListener('playing', onPlaying);
+            this.videoElement.addEventListener('error', onVideoError);
             this.mpegtsPlayer.attachMediaElement(this.videoElement);
             this.mpegtsPlayer.load();
 
-            this.videoElement.play()
-                .then(resolve)
-                .catch(reject);
+            const playPromise = this.videoElement.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(error => finish(error));
+            }
         });
     },
 
@@ -274,26 +397,42 @@ const Player = {
      */
     async playNative(url) {
         return new Promise((resolve, reject) => {
-            this.videoElement.src = url;
+            let settled = false;
+            const timeout = setTimeout(() => {
+                finish(new Error('Video did not start within 20 seconds'));
+            }, 20000);
 
-            const onCanPlay = () => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
+            const cleanup = () => {
+                clearTimeout(timeout);
+                this.videoElement.removeEventListener('playing', onPlaying);
                 this.videoElement.removeEventListener('error', onError);
-                this.videoElement.play()
-                    .then(resolve)
-                    .catch(reject);
             };
 
-            const onError = (e) => {
-                this.videoElement.removeEventListener('canplay', onCanPlay);
-                this.videoElement.removeEventListener('error', onError);
-                reject(new Error('Native playback error'));
+            const finish = (error) => {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (error) reject(error);
+                else resolve();
             };
 
-            this.videoElement.addEventListener('canplay', onCanPlay);
+            const onPlaying = () => finish();
+            const onError = () => {
+                const mediaError = this.videoElement.error;
+                const code = mediaError && mediaError.code ? ` (media error ${mediaError.code})` : '';
+                finish(new Error('Native playback error' + code));
+            };
+
+            this.videoElement.preload = 'auto';
+            this.videoElement.addEventListener('playing', onPlaying);
             this.videoElement.addEventListener('error', onError);
-
+            this.videoElement.src = url;
             this.videoElement.load();
+
+            const playPromise = this.videoElement.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(error => finish(error));
+            }
         });
     },
 
@@ -301,6 +440,19 @@ const Player = {
      * Stop playback
      */
     stop() {
+        // Detach callbacks first so pause/load events emitted during teardown
+        // cannot show a stale buffering overlay after leaving the player.
+        const bufferingCallback = this.onBuffering;
+        this.onBuffering = null;
+        this.onPlaying = null;
+        this.onPaused = null;
+        this.onTimeUpdate = null;
+        this.onError = null;
+
+        if (bufferingCallback) {
+            bufferingCallback(false);
+        }
+
         // Destroy HLS player
         if (this.hlsPlayer) {
             this.hlsPlayer.destroy();
@@ -308,13 +460,7 @@ const Player = {
         }
 
         // Destroy mpegts player
-        if (this.mpegtsPlayer) {
-            this.mpegtsPlayer.pause();
-            this.mpegtsPlayer.unload();
-            this.mpegtsPlayer.detachMediaElement();
-            this.mpegtsPlayer.destroy();
-            this.mpegtsPlayer = null;
-        }
+        this.destroyMpegtsPlayer();
 
         // Clear video source
         if (this.videoElement) {

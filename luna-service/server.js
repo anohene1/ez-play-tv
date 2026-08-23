@@ -8,7 +8,7 @@ var cors = require('cors');
 var axios = require('axios');
 
 var app = express();
-var PORT = process.env.PORT || 3000;
+var PORT = process.env.PORT || 3001;
 
 // Enable CORS for all routes
 app.use(cors());
@@ -19,6 +19,48 @@ var portalUrl = '';
 var macAddress = '';
 var token = '';
 var cookies = {};
+
+/**
+ * Portal URLs are commonly shared as the MAG landing page ending in /c.
+ * API endpoints live beside that directory, not inside it.
+ */
+function normalizePortalUrl(portal) {
+    return portal.trim().replace(/\/+$/, '').replace(/\/c$/i, '');
+}
+
+function getStreamTarget(rawUrl) {
+    var target;
+
+    try {
+        target = new URL(rawUrl);
+    } catch (error) {
+        throw new Error('Invalid stream URL');
+    }
+
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS streams are supported');
+    }
+
+    return target;
+}
+
+function proxiedStreamUrl(targetUrl) {
+    return '/stream?url=' + encodeURIComponent(targetUrl);
+}
+
+function rewriteHlsManifest(manifest, manifestUrl) {
+    return manifest.split(/\r?\n/).map(function(line) {
+        if (!line) return line;
+
+        if (line.charAt(0) !== '#') {
+            return proxiedStreamUrl(new URL(line, manifestUrl).toString());
+        }
+
+        return line.replace(/URI="([^"]+)"/g, function(match, uri) {
+            return 'URI="' + proxiedStreamUrl(new URL(uri, manifestUrl).toString()) + '"';
+        });
+    }).join('\n');
+}
 
 /**
  * Normalize MAC address to XX:XX:XX:XX:XX:XX format
@@ -193,7 +235,7 @@ app.post('/init', function(req, res) {
             });
         }
 
-        portalUrl = url.replace(/\/+$/, '');
+        portalUrl = normalizePortalUrl(url);
         macAddress = normalizeMac(mac);
         token = '';
         cookies = {};
@@ -309,6 +351,78 @@ app.post('/handshake', function(req, res) {
         });
 });
 
+/**
+ * GET /stream?url=... - Stream media through the local development proxy.
+ * This forwards byte ranges and rewrites HLS child URLs so manifests, keys,
+ * and segments all continue through the proxy.
+ */
+app.get('/stream', function(req, res) {
+    var target;
+
+    try {
+        target = getStreamTarget(req.query.url);
+    } catch (error) {
+        return res.status(400).json({ success: false, error: error.message });
+    }
+
+    var requestHeaders = {
+        'User-Agent': 'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 2 rev: 250 Safari/533.3'
+    };
+
+    if (req.headers.range) {
+        requestHeaders.Range = req.headers.range;
+    }
+
+    axios.get(target.toString(), {
+        headers: requestHeaders,
+        responseType: 'stream',
+        timeout: 30000,
+        maxRedirects: 5,
+        validateStatus: function() { return true; }
+    })
+    .then(function(response) {
+        var contentType = String(response.headers['content-type'] || '');
+        var isHls = /mpegurl/i.test(contentType) || /\.m3u8(?:$|\?)/i.test(target.toString());
+
+        if (isHls) {
+            var chunks = [];
+            response.data.on('data', function(chunk) { chunks.push(chunk); });
+            response.data.on('end', function() {
+                var manifest = Buffer.concat(chunks).toString('utf8');
+                res.status(response.status);
+                res.set('Content-Type', contentType || 'application/vnd.apple.mpegurl');
+                res.send(rewriteHlsManifest(manifest, target.toString()));
+            });
+            response.data.on('error', function(error) {
+                if (!res.headersSent) {
+                    res.status(502).json({ success: false, error: error.message });
+                } else {
+                    res.end();
+                }
+            });
+            return;
+        }
+
+        res.status(response.status);
+        ['content-type', 'content-length', 'content-range', 'accept-ranges', 'cache-control'].forEach(function(header) {
+            if (response.headers[header]) res.set(header, response.headers[header]);
+        });
+
+        response.data.pipe(res);
+        res.on('close', function() {
+            if (response.data && !response.data.destroyed) response.data.destroy();
+        });
+    })
+    .catch(function(error) {
+        console.error('[Stream] Error:', error.message);
+        if (!res.headersSent) {
+            res.status(502).json({ success: false, error: error.message });
+        } else {
+            res.end();
+        }
+    });
+});
+
 // Get local IP address
 function getLocalIP() {
     var os = require('os');
@@ -343,6 +457,7 @@ app.listen(PORT, '0.0.0.0', function() {
     console.log('    POST /request    - Proxy request to portal');
     console.log('    GET  /status     - Get proxy status');
     console.log('    POST /handshake  - Force handshake');
+    console.log('    GET  /stream     - Proxy a video stream');
     console.log('');
     console.log('========================================');
     console.log('');

@@ -99,6 +99,12 @@ const Navigation = {
             return;
         }
 
+        // Green Button (404): refresh portal content from Home.
+        if ((keyCode === 404 || key === 'Green') && screenId === 'home-screen') {
+            Actions.refreshHomeContent();
+            return;
+        }
+
         // Handle enter/select
         if (key === 'Enter') {
             if (current && current.classList.contains('focusable')) {
@@ -149,17 +155,7 @@ const Navigation = {
         } else if (screenId === 'series-details-screen') {
             ScreenManager.show('series');
         } else if (screenId === 'player-screen') {
-            // Stop the player
-            Player.stop();
-
-            // Go back to previous screen
-            const prevScreen = ScreenManager.previousScreen;
-            if (prevScreen && prevScreen !== 'player') {
-                ScreenManager.show(prevScreen);
-            } else {
-                // Fallback to channels if no previous screen
-                ScreenManager.show('channels');
-            }
+            Actions.exitPlayer();
         } else if (screenId === 'settings-screen') {
             ScreenManager.show('home');
         }

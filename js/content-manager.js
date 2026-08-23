@@ -27,6 +27,36 @@ const ContentManager = {
         series: false,
     },
 
+    categoryRequests: {
+        genres: null,
+        vod: null,
+        series: null,
+    },
+
+    wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    },
+
+    async loadCategoryData(loader, label, maxAttempts = 3) {
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const categories = await loader();
+                if (!Array.isArray(categories) || categories.length === 0) {
+                    throw new Error(`${label} returned no categories`);
+                }
+                return categories;
+            } catch (error) {
+                lastError = error;
+                console.warn(`${label} attempt ${attempt}/${maxAttempts} failed:`, error);
+                if (attempt < maxAttempts) await this.wait(attempt * 600);
+            }
+        }
+
+        throw lastError || new Error(`Failed to load ${label}`);
+    },
+
     /**
      * Initialize content manager and load initial data
      */
@@ -67,27 +97,33 @@ const ContentManager = {
      */
     async loadGenres() {
         if (this.cache.genres) return this.cache.genres;
-        if (this.loading.genres) return null;
+        if (this.categoryRequests.genres) return this.categoryRequests.genres;
 
         this.loading.genres = true;
-
-        try {
-            const genres = await StalkerAPI.getGenres();
-
-            // Add "Favorites" and "All" categories
-            this.cache.genres = [
+        this.categoryRequests.genres = (async () => {
+            const fallback = [
+                { id: 'recent', title: 'Recently watched', number: '-2' },
                 { id: 'favorites', title: 'Favorites', number: '-1' },
                 { id: '*', title: 'All Channels', number: '0' },
-                ...genres,
             ];
 
-            return this.cache.genres;
-        } catch (error) {
-            console.error('Failed to load genres:', error);
-            return [];
-        } finally {
-            this.loading.genres = false;
-        }
+            try {
+                const genres = await this.loadCategoryData(
+                    () => StalkerAPI.getGenres(),
+                    'Live TV categories'
+                );
+                this.cache.genres = [...fallback, ...genres];
+                return this.cache.genres;
+            } catch (error) {
+                console.error('Failed to load genres:', error);
+                return fallback;
+            } finally {
+                this.loading.genres = false;
+                this.categoryRequests.genres = null;
+            }
+        })();
+
+        return this.categoryRequests.genres;
     },
 
     /**
@@ -98,6 +134,20 @@ const ContentManager = {
 
         if (!forceRefresh && this.cache.channels[cacheKey]) {
             return this.cache.channels[cacheKey];
+        }
+
+        // Handle Recently Watched
+        if (genre === 'recent') {
+            const recent = WatchHistoryManager.getChannels();
+            const start = (page - 1) * 20;
+            const pageItems = recent.slice(start, start + 20);
+
+            return {
+                channels: pageItems,
+                total: recent.length,
+                pages: Math.ceil(recent.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         // Handle Favorites
@@ -180,7 +230,7 @@ const ContentManager = {
             return streamUrl;
         } catch (error) {
             console.error('Failed to get stream URL:', error);
-            return null;
+            throw error;
         }
     },
 
@@ -189,26 +239,33 @@ const ContentManager = {
      */
     async loadVodCategories() {
         if (this.cache.vodCategories) return this.cache.vodCategories;
-        if (this.loading.vod) return null;
+        if (this.categoryRequests.vod) return this.categoryRequests.vod;
 
         this.loading.vod = true;
-
-        try {
-            const categories = await StalkerAPI.getVodCategories();
-
-            this.cache.vodCategories = [
+        this.categoryRequests.vod = (async () => {
+            const fallback = [
+                { id: 'recent', title: 'Recently watched' },
                 { id: 'favorites', title: 'Favorites' },
                 { id: '*', title: 'All Movies' },
-                ...categories,
             ];
 
-            return this.cache.vodCategories;
-        } catch (error) {
-            console.error('Failed to load VOD categories:', error);
-            return [];
-        } finally {
-            this.loading.vod = false;
-        }
+            try {
+                const categories = await this.loadCategoryData(
+                    () => StalkerAPI.getVodCategories(),
+                    'Movie categories'
+                );
+                this.cache.vodCategories = [...fallback, ...categories];
+                return this.cache.vodCategories;
+            } catch (error) {
+                console.error('Failed to load VOD categories:', error);
+                return fallback;
+            } finally {
+                this.loading.vod = false;
+                this.categoryRequests.vod = null;
+            }
+        })();
+
+        return this.categoryRequests.vod;
     },
 
     /**
@@ -219,6 +276,23 @@ const ContentManager = {
 
         if (!forceRefresh && this.cache.vodItems[cacheKey]) {
             return this.cache.vodItems[cacheKey];
+        }
+
+        // Handle Recently Watched
+        if (category === 'recent') {
+            const recent = WatchHistoryManager.getMovies();
+            const items = search
+                ? recent.filter(movie => movie.name.toLowerCase().includes(search.toLowerCase()))
+                : recent;
+            const start = (page - 1) * 20;
+            const pageItems = items.slice(start, start + 20);
+
+            return {
+                items: pageItems,
+                total: items.length,
+                pages: Math.ceil(items.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         // Handle Favorites
@@ -280,7 +354,7 @@ const ContentManager = {
             return streamUrl;
         } catch (error) {
             console.error('Failed to get VOD stream URL:', error);
-            return null;
+            throw error;
         }
     },
 
@@ -289,21 +363,33 @@ const ContentManager = {
      */
     async loadSeriesCategories() {
         if (this.cache.seriesCategories) return this.cache.seriesCategories;
+        if (this.categoryRequests.series) return this.categoryRequests.series;
 
-        try {
-            const categories = await StalkerAPI.getSeriesCategories();
-
-            this.cache.seriesCategories = [
+        this.loading.series = true;
+        this.categoryRequests.series = (async () => {
+            const fallback = [
+                { id: 'recent', title: 'Recently watched' },
                 { id: 'favorites', title: 'Favorites' },
                 { id: '*', title: 'All Series' },
-                ...categories,
             ];
 
-            return this.cache.seriesCategories;
-        } catch (error) {
-            console.error('Failed to load series categories:', error);
-            return [];
-        }
+            try {
+                const categories = await this.loadCategoryData(
+                    () => StalkerAPI.getSeriesCategories(),
+                    'Series categories'
+                );
+                this.cache.seriesCategories = [...fallback, ...categories];
+                return this.cache.seriesCategories;
+            } catch (error) {
+                console.error('Failed to load series categories:', error);
+                return fallback;
+            } finally {
+                this.loading.series = false;
+                this.categoryRequests.series = null;
+            }
+        })();
+
+        return this.categoryRequests.series;
     },
 
     /**
@@ -314,6 +400,23 @@ const ContentManager = {
 
         if (this.cache.series[cacheKey]) {
             return this.cache.series[cacheKey];
+        }
+
+        // Handle Recently Watched
+        if (category === 'recent') {
+            const recent = WatchHistoryManager.getSeries();
+            const items = search
+                ? recent.filter(series => series.name.toLowerCase().includes(search.toLowerCase()))
+                : recent;
+            const start = (page - 1) * 20;
+            const pageItems = items.slice(start, start + 20);
+
+            return {
+                items: pageItems,
+                total: items.length,
+                pages: Math.ceil(items.length / 20) || 1,
+                currentPage: page
+            };
         }
 
         // Handle Favorites
@@ -375,7 +478,7 @@ const ContentManager = {
             return streamUrl;
         } catch (error) {
             console.error('Failed to get Series stream URL:', error);
-            return null;
+            throw error;
         }
     },
 
@@ -534,6 +637,9 @@ const ContentManager = {
             seriesCategories: null,
             series: {},
         };
+        this.currentGenre = '*';
+        this.currentVodCategory = '*';
+        this.currentSeriesCategory = '*';
     },
 
     /**
@@ -557,8 +663,14 @@ const ContentManager = {
                 this.loadSeriesList('*', 1)
             ]);
 
-            console.log('Content preload complete');
-            return true;
+            const categoriesLoaded = !!(
+                this.cache.genres
+                && this.cache.vodCategories
+                && this.cache.seriesCategories
+            );
+
+            console.log('Content preload complete', { categoriesLoaded });
+            return categoriesLoaded;
         } catch (error) {
             console.error('Preload failed:', error);
             return false;
@@ -569,8 +681,20 @@ const ContentManager = {
      * Refresh all data
      */
     async refresh() {
+        const previousCache = this.cache;
         this.clearCache();
-        await this.preloadContent();
+
+        try {
+            const connected = await this.init();
+            if (!connected) throw new Error('Could not reconnect to the portal');
+
+            const loaded = await this.preloadContent();
+            if (!loaded) throw new Error('One or more category lists did not load');
+            return true;
+        } catch (error) {
+            this.cache = previousCache;
+            throw error;
+        }
     },
 };
 

@@ -17,6 +17,10 @@ var portalUrl = '';
 var macAddress = '';
 var token = '';
 var cookies = {};
+
+function normalizePortalUrl(portal) {
+    return portal.trim().replace(/\/+$/, '').replace(/\/c$/i, '');
+}
 var isHandshaking = false;
 
 /**
@@ -224,7 +228,7 @@ service.register('init', function(message) {
         }
 
         // Normalize portal URL
-        portalUrl = url.replace(/\/+$/, '');
+        portalUrl = normalizePortalUrl(url);
 
         // Normalize MAC address
         macAddress = normalizeMac(mac);

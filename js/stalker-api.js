@@ -381,6 +381,20 @@ var StalkerAPI = {
     },
 
     /**
+     * Extract the actual HTTP URL from MAG commands such as:
+     *   ffmpeg http://... or ffrt -options "http://..."
+     */
+    extractStreamUrl: function (command) {
+        var value = String(command || '')
+            .replace(/\\\//g, '/')
+            .replace(/&amp;/g, '&')
+            .trim();
+        var match = value.match(/https?:\/\/[^\s"']+/i);
+        if (!match) throw new Error('Portal response did not contain a stream URL');
+        return match[0].replace(/[),;]+$/, '');
+    },
+
+    /**
      * Create stream link for channel
      */
     createLink: function (cmd, channelId) {
@@ -396,24 +410,10 @@ var StalkerAPI = {
         return this.request('create_link', params)
             .then(function (result) {
                 if (result.js && result.js.cmd) {
-                    var streamUrl = result.js.cmd;
-
-                    // Clean up the URL
-                    if (streamUrl.indexOf('ffmpeg ') === 0) {
-                        streamUrl = streamUrl.replace(/^ffmpeg\s+/, '');
-                    }
-                    if (streamUrl.indexOf('ffrt ') === 0) {
-                        streamUrl = streamUrl.replace(/^ffrt\s+/, '');
-                    }
-
-                    // Extract URL from quotes if present
-                    var urlMatch = streamUrl.match(/"([^"]+)"|'([^']+)'|(\S+)/);
-                    if (urlMatch) {
-                        streamUrl = urlMatch[1] || urlMatch[2] || urlMatch[3];
-                    }
+                    var streamUrl = StalkerAPI.extractStreamUrl(result.js.cmd);
 
                     // Fix empty stream parameter if present (some portals return stream=&)
-                    if (channelId && (streamUrl.indexOf('stream=&') !== -1 || streamUrl.indexOf('stream=&') !== -1)) {
+                    if (channelId && streamUrl.indexOf('stream=&') !== -1) {
                         console.log('Fixing empty stream parameter with channel ID:', channelId);
                         streamUrl = streamUrl.replace('stream=&', 'stream=' + channelId + '&');
                     }
@@ -482,18 +482,7 @@ var StalkerAPI = {
         return this.request('create_link', params)
             .then(function (result) {
                 if (result.js && result.js.cmd) {
-                    var streamUrl = result.js.cmd;
-
-                    if (streamUrl.indexOf('ffmpeg ') === 0) {
-                        streamUrl = streamUrl.replace(/^ffmpeg\s+/, '');
-                    }
-
-                    var urlMatch = streamUrl.match(/"([^"]+)"|'([^']+)'|(\S+)/);
-                    if (urlMatch) {
-                        streamUrl = urlMatch[1] || urlMatch[2] || urlMatch[3];
-                    }
-
-                    return streamUrl;
+                    return StalkerAPI.extractStreamUrl(result.js.cmd);
                 }
 
                 throw new Error('Failed to create VOD link');
@@ -571,25 +560,8 @@ var StalkerAPI = {
 
         return this.request('create_link', params)
             .then(function (result) {
-                console.log('Series create_link result:', result);
-
                 if (result.js && result.js.cmd) {
-                    var streamUrl = result.js.cmd;
-
-                    // Clean up the URL
-                    if (streamUrl.indexOf('ffmpeg ') === 0) {
-                        streamUrl = streamUrl.replace(/^ffmpeg\s+/, '');
-                    }
-                    if (streamUrl.indexOf('ffrt ') === 0) {
-                        streamUrl = streamUrl.replace(/^ffrt\s+/, '');
-                    }
-
-                    var urlMatch = streamUrl.match(/"([^"]+)"|'([^']+)'|(\S+)/);
-                    if (urlMatch) {
-                        streamUrl = urlMatch[1] || urlMatch[2] || urlMatch[3];
-                    }
-
-                    return streamUrl;
+                    return StalkerAPI.extractStreamUrl(result.js.cmd);
                 }
 
                 throw new Error('Failed to create series link - no cmd in response');

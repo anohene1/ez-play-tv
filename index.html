@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
     <title>EZ Play TV</title>
 
     <!-- Fonts -->
@@ -172,6 +172,12 @@
                     <div class="clock-time" id="clock-time">12:51</div>
                     <div class="clock-date" id="clock-date">Wednesday, Jan 2</div>
                 </div>
+            </div>
+        </div>
+        <div class="remote-legend home-refresh-legend" aria-hidden="true">
+            <div class="legend-item">
+                <span class="legend-key green"></span>
+                <span class="legend-text">Refresh categories</span>
             </div>
         </div>
     </div>
@@ -530,14 +536,17 @@
     <!-- ================================================== -->
     <!-- SCRIPTS -->
     <!-- ================================================== -->
+    <script src="webOSTVjs-1.2.13/webOSTV.js"></script>
+
     <!-- HLS.js and mpegts.js for video playback -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js"></script>
+    <script src="vendor/mpegts-1.8.2.min.js"></script>
 
     <!-- JavaScript Modules -->
     <script src="js/data.js"></script>
     <script src="js/accounts.js"></script>
     <script src="js/favorites.js"></script>
+    <script src="js/watch-history.js"></script>
     <script src="js/stalker-luna-service.js"></script>
     <script src="js/stalker-api.js"></script>
     <script src="js/player.js"></script>

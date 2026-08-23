@@ -1,0 +1,7 @@
+{
+  "name": "com.ezplaytv.app.stalker",
+  "version": "1.0.0",
+  "description": "Stalker Portal proxy service for EZ Play TV",
+  "main": "index.js",
+  "license": "MIT"
+}

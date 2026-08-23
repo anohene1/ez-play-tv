@@ -10,6 +10,36 @@ const ScreenManager = {
      * Show a screen by ID
      */
     show(id) {
+        // Leaving full playback or navigating away from the Channels mini-player
+        // must tear down the media request and its buffering UI. The one exception
+        // is Channels -> Player, where the same live stream moves to full screen.
+        const leavingFullPlayer = this.currentScreen === 'player' && id !== 'player';
+        const leavingLivePreview = this.currentScreen === 'channels'
+            && id !== 'channels'
+            && id !== 'player'
+            && typeof Player !== 'undefined'
+            && !!Player.currentUrl;
+
+        if (leavingFullPlayer || leavingLivePreview) {
+            if (typeof Player !== 'undefined') {
+                Player.stop();
+                Player.currentChannel = null;
+                Player.currentVod = null;
+            }
+
+            if (typeof UI !== 'undefined') {
+                UI.showLoading(false);
+                if (UI.vodProgressInterval) {
+                    clearInterval(UI.vodProgressInterval);
+                    UI.vodProgressInterval = null;
+                }
+            }
+
+            if (typeof Actions !== 'undefined') {
+                Actions.currentMiniPlayerChannelId = null;
+            }
+        }
+
         // Hide all screens
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
@@ -51,9 +81,8 @@ const ScreenManager = {
                 UI.updateProfileName();
                 break;
             case 'channels':
-            case 'channels':
-                // Load channels content if not already loaded
-                if (!UI.channels || UI.channels.length === 0) {
+                // Retry the screen load when either its items or categories are missing.
+                if (!UI.channels || UI.channels.length === 0 || !ContentManager.cache.genres) {
                     UI.loadChannelsContent();
                 } else {
                     // Update list to reflect selection state
@@ -61,14 +90,12 @@ const ScreenManager = {
                 }
                 break;
             case 'movies':
-                // Load movies content if not already loaded
-                if (!UI.movies || UI.movies.length === 0) {
+                if (!UI.movies || UI.movies.length === 0 || !ContentManager.cache.vodCategories) {
                     UI.loadMoviesContent();
                 }
                 break;
             case 'series':
-                // Load series content if not already loaded
-                if (!UI.series || UI.series.length === 0) {
+                if (!UI.series || UI.series.length === 0 || !ContentManager.cache.seriesCategories) {
                     UI.loadSeriesContent();
                 }
                 break;

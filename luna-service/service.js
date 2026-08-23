@@ -19,6 +19,13 @@ var config = {
 };
 
 /**
+ * Convert a user-facing MAG landing URL ending in /c to its API base URL.
+ */
+function normalizePortalUrl(portal) {
+    return portal.trim().replace(/\/+$/, '').replace(/\/c$/i, '');
+}
+
+/**
  * Normalize MAC address
  */
 function normalizeMac(mac) {
@@ -154,7 +161,7 @@ function handleMessage(message) {
     var params = message.payload || {};
 
     if (method === 'init') {
-        config.portalUrl = params.url.replace(/\/+$/, '');
+        config.portalUrl = normalizePortalUrl(params.url);
         config.mac = normalizeMac(params.mac);
         config.token = '';
         config.cookies = {};

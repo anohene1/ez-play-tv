@@ -2,12 +2,25 @@
 
 A Stalker Portal IPTV client for LG webOS TVs.
 
+## Screenshots
+
+| Portal setup | Home |
+| --- | --- |
+| ![EZ Play TV portal setup screen](docs/screenshots/login.png) | ![EZ Play TV home screen](docs/screenshots/home.png) |
+
+| Channel selection and live preview | Full-screen player |
+| --- | --- |
+| ![Live TV channel selection with video preview](docs/screenshots/channel-selection-preview.png) | ![EZ Play TV full-screen video player](docs/screenshots/player.png) |
+
 ## Project Structure
 
 ```
-iptv-webos-app/
+ezplaytv-webos-app/
 ├── appinfo.json          # webOS app manifest
 ├── index.html            # Main entry point
+├── webOSTVjs-1.2.13/     # LG webOSTV.js runtime
+├── webos-service/        # Packaged Stalker portal Luna service
+├── luna-service/         # Browser-only development proxy
 ├── css/
 │   ├── main.css          # Base styles, variables, common components
 │   ├── screens.css       # Setup, Profile, Home, Channels screen styles
@@ -31,13 +44,16 @@ iptv-webos-app/
 - **Live TV**: Browse channels by country
 - **Movies/VOD**: Browse movies by genre
 - **TV Remote Navigation**: Full support for D-pad navigation
-- **1080p Resolution**: Optimized for Full HD TVs
+- **Responsive Playback**: Full-screen video at 1080p and 4K
+- **Native webOS Networking**: Packaged Luna service avoids browser CORS restrictions
 
 ## Navigation
 
 - **Arrow Keys**: Navigate between focusable elements
 - **Enter/OK**: Select/activate focused element
 - **Back/Escape**: Go back to previous screen
+- **Green Button on Home**: Reconnect and refresh categories/content
+- **Yellow Button**: Add or remove the focused item from favorites
 
 ### Zone-Based Navigation
 
@@ -50,19 +66,24 @@ The app uses intelligent zone-based navigation:
 
 ### Prerequisites
 
-1. Install webOS TV SDK: https://webostv.developer.lge.com/sdk/installation/
-2. Install ares-cli tools
+1. Install the webOS TV CLI and Simulator from LG's developer site.
+2. Run the package check:
+
+```bash
+ares-package --check . ./webos-service
+```
 
 ### Package the app
 
 ```bash
-ares-package iptv-webos-app
+mkdir -p build
+ares-package -o build . ./webos-service
 ```
 
 ### Install on TV (Developer Mode required)
 
 ```bash
-ares-install --device <device-name> com.ezplaytv.app_1.0.0_all.ipk
+ares-install --device <device-name> build/com.ezplaytv.app_1.0.0_all.ipk
 ```
 
 ### Launch the app
@@ -75,11 +96,40 @@ ares-launch --device <device-name> com.ezplaytv.app
 
 ### Testing in Browser
 
-Open `index.html` in a browser. Use keyboard arrow keys to simulate TV remote.
+Start the browser proxy, then serve the app over HTTP:
+
+```bash
+cd luna-service
+npm install
+npm start
+```
+
+In another terminal:
+
+```bash
+python3 -m http.server 8080
+```
+
+Open `http://localhost:8080`. Use keyboard arrow keys to simulate the TV remote.
+
+The proxy is only for desktop browser development. A packaged LG TV build uses
+`webos-service/` directly and does not depend on a computer or localhost proxy.
+
+### Testing in LG Simulator
+
+Launch the app source directory:
+
+```bash
+ares-launch -s 26 --simulator-path /path/to/webOS_TV_26_Simulator .
+```
+
+In the Simulator, use **File > Add Service** and select `webos-service/`, then
+ensure `com.ezplaytv.app.stalker` is switched on in **Tools > Service List**.
 
 ### Screen Resolution
 
-The app is designed for 1920x1080 resolution. For testing, set your browser window to this size.
+The interface uses a 1920x1080 design canvas and scales to the TV viewport.
+The player itself fills the physical screen, including 4K displays.
 
 ## TODO
 

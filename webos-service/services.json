@@ -1,0 +1,10 @@
+{
+  "id": "com.ezplaytv.app.stalker",
+  "description": "EZ Play TV Stalker Portal Service",
+  "services": [
+    {
+      "name": "com.ezplaytv.app.stalker",
+      "description": "Proxies Stalker Portal API requests"
+    }
+  ]
+}
